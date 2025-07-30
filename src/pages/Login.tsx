@@ -11,7 +11,7 @@ export const Login = () => {
   const navigate = useNavigate();
 
   const handleLogin = () => {
-    const correctPassword = "123456"; // Senha fixa
+    const correctPassword = "8912"; // ← AQUI ESTÁ A NOVA SENHA
 
     if (password === correctPassword) {
       navigate("/");
