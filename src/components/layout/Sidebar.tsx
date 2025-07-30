@@ -1,13 +1,13 @@
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { 
-  Car, 
-  Users, 
-  ClipboardCheck, 
-  AlertTriangle, 
-  FileText, 
+import {
+  Car,
+  Users,
+  ClipboardCheck,
+  AlertTriangle,
+  FileText,
   HardDrive,
-  LayoutDashboard 
+  LayoutDashboard,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -19,7 +19,7 @@ const menuItems = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'vehicles', label: 'Veículos', icon: Car },
   { id: 'drivers', label: 'Motoristas', icon: Users },
-  { id: 'revisions', label: 'Revisões', icon: ClipboardCheck },
+  { id: 'revisions', label: 'Revisões', icon: ClipboardCheck }, // Nova entrada
   { id: 'problems', label: 'Problemas', icon: AlertTriangle },
   { id: 'reports', label: 'Relatórios', icon: FileText },
   { id: 'backup', label: 'Backup', icon: HardDrive },

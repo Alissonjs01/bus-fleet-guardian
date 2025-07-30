@@ -4,6 +4,7 @@ import { Dashboard } from "@/components/dashboard/Dashboard";
 import { VehicleManagement } from "@/components/vehicles/VehicleManagement";
 import { DriverManagement } from "@/components/drivers/DriverManagement";
 import { ProblemManagement } from "@/components/problems/ProblemManagement";
+import { Revisions } from "@/components/revisions/Revisions";
 
 const Index = () => {
   const [activeView, setActiveView] = useState('dashboard');
@@ -19,7 +20,7 @@ const Index = () => {
       case 'problems':
         return <ProblemManagement />;
       case 'revisions':
-        return <div className="p-8 text-center text-muted-foreground">Revisões - A implementar</div>;
+        return <Revisions />;
       case 'reports':
         return <div className="p-8 text-center text-muted-foreground">Relatórios - A implementar</div>;
       case 'backup':
