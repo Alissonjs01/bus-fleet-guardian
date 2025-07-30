@@ -56,6 +56,7 @@ export const Sidebar = ({ activeView, onViewChange }: SidebarProps) => {
         })}
       </nav>
 
+      {/* 
       <div className="absolute bottom-4 left-4 right-4">
         <div className="text-xs text-muted-foreground bg-muted p-3 rounded-lg">
           <p className="font-medium">💡 Próximas implementações:</p>
@@ -67,6 +68,7 @@ export const Sidebar = ({ activeView, onViewChange }: SidebarProps) => {
           </ul>
         </div>
       </div>
+      */}
     </div>
   );
 };
