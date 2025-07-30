@@ -5,13 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Lock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-export const Login = () => {
+// ✅ Exporta como padrão
+const Login = () => {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
   const handleLogin = () => {
-    const correctPassword = "8912"; // ← AQUI ESTÁ A NOVA SENHA
+    const correctPassword = "8912"; // Nova senha fixa
 
     if (password === correctPassword) {
       navigate("/");
@@ -51,3 +52,5 @@ export const Login = () => {
     </div>
   );
 };
+
+export default Login; // ✅ Exportação padrão
