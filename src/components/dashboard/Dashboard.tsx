@@ -14,6 +14,7 @@ import {
   Wrench
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { formatDate } from "@/utils/dateFormat";
 
 export const Dashboard = () => {
   const [data, setData] = useState<FleetData | null>(null);
@@ -70,7 +71,7 @@ export const Dashboard = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
+        <h2 className="text-3xl font-bold tracking-tight">Painel de Controle</h2>
         <p className="text-muted-foreground">
           Visão geral da frota e operações
         </p>
@@ -125,10 +126,11 @@ export const Dashboard = () => {
                       #{index + 1}
                     </div>
                     <div>
-                      <div className="font-medium">Veículo {item.vehicle.numeroRegistro}</div>
-                      <div className="text-sm text-muted-foreground">
-                        Status: {item.vehicle.status}
-                      </div>
+                       <div className="font-medium">Veículo {item.vehicle.numeroRegistro}</div>
+                       <div className="text-sm text-muted-foreground">
+                         Status: {item.vehicle.status === 'operacao' ? 'Em Operação' : 
+                                   item.vehicle.status === 'garagem' ? 'Na Garagem' : 'Em Manutenção'}
+                       </div>
                     </div>
                   </div>
                   <div className="text-right">
@@ -175,9 +177,9 @@ export const Dashboard = () => {
                       return (
                         <div key={revision.id} className="p-2 bg-destructive/10 border border-destructive/20 rounded">
                           <div className="font-medium">Veículo {vehicle?.numeroRegistro}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {revision.tipo} - Venceu em {new Date(revision.dataProxima).toLocaleDateString()}
-                          </div>
+                           <div className="text-sm text-muted-foreground">
+                             {revision.tipo} - Venceu em {formatDate(revision.dataProxima)}
+                           </div>
                         </div>
                       );
                     })}
@@ -198,9 +200,9 @@ export const Dashboard = () => {
                       return (
                         <div key={revision.id} className="p-2 bg-warning/10 border border-warning/20 rounded">
                           <div className="font-medium">Veículo {vehicle?.numeroRegistro}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {revision.tipo} - {new Date(revision.dataProxima).toLocaleDateString()}
-                          </div>
+                           <div className="text-sm text-muted-foreground">
+                             {revision.tipo} - {formatDate(revision.dataProxima)}
+                           </div>
                         </div>
                       );
                     })}

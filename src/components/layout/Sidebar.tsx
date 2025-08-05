@@ -8,35 +8,59 @@ import {
   FileText,
   HardDrive,
   LayoutDashboard,
+  Menu,
+  X,
 } from "lucide-react";
 
 interface SidebarProps {
   activeView: string;
   onViewChange: (view: string) => void;
+  isCollapsed: boolean;
+  onToggleCollapse: () => void;
 }
 
 const menuItems = [
-  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { id: 'dashboard', label: 'Painel', icon: LayoutDashboard },
   { id: 'vehicles', label: 'Veículos', icon: Car },
   { id: 'drivers', label: 'Motoristas', icon: Users },
-  { id: 'revisions', label: 'Revisões', icon: ClipboardCheck }, // Nova entrada
+  { id: 'revisions', label: 'Revisões', icon: ClipboardCheck },
   { id: 'problems', label: 'Problemas', icon: AlertTriangle },
   { id: 'reports', label: 'Relatórios', icon: FileText },
   { id: 'backup', label: 'Backup', icon: HardDrive },
 ];
 
-export const Sidebar = ({ activeView, onViewChange }: SidebarProps) => {
+export const Sidebar = ({ activeView, onViewChange, isCollapsed, onToggleCollapse }: SidebarProps) => {
   return (
-    <div className="w-64 bg-card border-r border-border h-screen p-4">
-      <div className="mb-8">
-        <h1 className="text-xl font-bold text-primary flex items-center gap-2">
-          <Car className="h-6 w-6" />
-          Sistema de Frota
-        </h1>
-        <p className="text-sm text-muted-foreground">Gestão Local</p>
+    <div className={cn(
+      "bg-card border-r border-border h-screen transition-all duration-300 flex flex-col",
+      isCollapsed ? "w-16" : "w-64"
+    )}>
+      {/* Header com botão de toggle */}
+      <div className="p-4 border-b border-border">
+        <div className="flex items-center justify-between">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onToggleCollapse}
+            className="h-8 w-8 shrink-0"
+          >
+            {isCollapsed ? <Menu className="h-4 w-4" /> : <X className="h-4 w-4" />}
+          </Button>
+          
+          {!isCollapsed && (
+            <div className="flex items-center gap-2 min-w-0">
+              <Car className="h-5 w-5 text-primary shrink-0" />
+              <div className="min-w-0">
+                <h1 className="text-sm font-bold text-primary truncate">Sistema de Frota</h1>
+                <p className="text-xs text-muted-foreground">Gestão Local</p>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
-      <nav className="space-y-2">
+      {/* Navigation */}
+      <nav className="flex-1 p-2 space-y-1">
         {menuItems.map((item) => {
           const Icon = item.icon;
           return (
@@ -44,31 +68,19 @@ export const Sidebar = ({ activeView, onViewChange }: SidebarProps) => {
               key={item.id}
               variant={activeView === item.id ? "secondary" : "ghost"}
               className={cn(
-                "w-full justify-start gap-3",
+                "w-full transition-all duration-200",
+                isCollapsed ? "justify-center p-2" : "justify-start gap-3 px-3",
                 activeView === item.id && "bg-primary text-primary-foreground hover:bg-primary/90"
               )}
               onClick={() => onViewChange(item.id)}
+              title={isCollapsed ? item.label : undefined}
             >
-              <Icon className="h-4 w-4" />
-              {item.label}
+              <Icon className="h-4 w-4 shrink-0" />
+              {!isCollapsed && <span className="truncate">{item.label}</span>}
             </Button>
           );
         })}
       </nav>
-
-      {/* 
-      <div className="absolute bottom-4 left-4 right-4">
-        <div className="text-xs text-muted-foreground bg-muted p-3 rounded-lg">
-          <p className="font-medium">💡 Próximas implementações:</p>
-          <ul className="mt-1 space-y-1">
-            <li>• Electron.js (Desktop)</li>
-            <li>• Servidor Node.js local</li>
-            <li>• Comunicação Wi-Fi</li>
-            <li>• Backup automático</li>
-          </ul>
-        </div>
-      </div>
-      */}
     </div>
   );
 };

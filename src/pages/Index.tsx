@@ -10,6 +10,7 @@ import { Backup } from "@/components/backup/Backup";
 
 const Index = () => {
   const [activeView, setActiveView] = useState('dashboard');
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true); // Recolhido por padrão
 
   const renderContent = () => {
     switch (activeView) {
@@ -34,7 +35,12 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background flex">
-      <Sidebar activeView={activeView} onViewChange={setActiveView} />
+      <Sidebar 
+        activeView={activeView} 
+        onViewChange={setActiveView}
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+      />
       <div className="flex-1 p-6 overflow-auto">
         {renderContent()}
       </div>

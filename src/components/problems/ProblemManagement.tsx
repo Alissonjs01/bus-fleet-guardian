@@ -7,6 +7,7 @@ import { Problem, FleetData } from "@/types/fleet";
 import { getFleetData, saveFleetData } from "@/utils/localStorage";
 import { AlertTriangle, CheckCircle, Clock, User, Car } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { formatDateTime } from "@/utils/dateFormat";
 
 export const ProblemManagement = () => {
   const [data, setData] = useState<FleetData | null>(null);
@@ -208,12 +209,12 @@ export const ProblemManagement = () => {
                         </div>
                         <div className="flex items-center gap-1">
                           <Clock className="h-3 w-3" />
-                          Relatado: {new Date(problem.createdAt).toLocaleString()}
+                          Relatado: {formatDateTime(problem.createdAt)}
                         </div>
                         {problem.resolvedAt && (
                           <div className="flex items-center gap-1">
                             <CheckCircle className="h-3 w-3" />
-                            Resolvido: {new Date(problem.resolvedAt).toLocaleString()}
+                            Resolvido: {formatDateTime(problem.resolvedAt)}
                           </div>
                         )}
                       </div>
