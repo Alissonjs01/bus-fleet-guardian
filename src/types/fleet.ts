@@ -1,6 +1,7 @@
 export interface Vehicle {
   id: number;
   numeroRegistro: string;
+  tipo: 'micro_onibus' | 'onibus' | 'articulado';
   status: 'operacao' | 'garagem' | 'manutencao';
   createdAt: string;
 }

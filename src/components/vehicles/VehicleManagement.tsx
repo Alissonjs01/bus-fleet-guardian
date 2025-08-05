@@ -16,8 +16,10 @@ export const VehicleManagement = () => {
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
   const [formData, setFormData] = useState({
     numeroRegistro: "",
+    tipo: "onibus" as Vehicle['tipo'],
     status: "garagem" as Vehicle['status']
   });
+  const [typeFilter, setTypeFilter] = useState<Vehicle['tipo'] | 'todos'>('todos');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -26,7 +28,7 @@ export const VehicleManagement = () => {
   }, []);
 
   const resetForm = () => {
-    setFormData({ numeroRegistro: "", status: "garagem" });
+    setFormData({ numeroRegistro: "", tipo: "onibus", status: "garagem" });
     setIsEditing(false);
     setEditingVehicle(null);
   };
@@ -68,6 +70,7 @@ export const VehicleManagement = () => {
         newData.vehicles[index] = {
           ...editingVehicle,
           numeroRegistro: formData.numeroRegistro,
+          tipo: formData.tipo,
           status: formData.status
         };
       }
@@ -80,6 +83,7 @@ export const VehicleManagement = () => {
       const newVehicle: Vehicle = {
         id: Math.max(0, ...newData.vehicles.map(v => v.id)) + 1,
         numeroRegistro: formData.numeroRegistro,
+        tipo: formData.tipo,
         status: formData.status,
         createdAt: new Date().toISOString()
       };
@@ -99,6 +103,7 @@ export const VehicleManagement = () => {
     setEditingVehicle(vehicle);
     setFormData({
       numeroRegistro: vehicle.numeroRegistro,
+      tipo: vehicle.tipo,
       status: vehicle.status
     });
     setIsEditing(true);
@@ -149,6 +154,26 @@ export const VehicleManagement = () => {
     }
   };
 
+  const getVehicleTypeIcon = (tipo: Vehicle['tipo']) => {
+    switch (tipo) {
+      case 'micro_onibus': return '🚐';
+      case 'onibus': return '🚌';
+      case 'articulado': return '🚍';
+    }
+  };
+
+  const getVehicleTypeLabel = (tipo: Vehicle['tipo']) => {
+    switch (tipo) {
+      case 'micro_onibus': return 'Micro Ônibus';
+      case 'onibus': return 'Ônibus';
+      case 'articulado': return 'Articulado';
+    }
+  };
+
+  const filteredVehicles = typeFilter === 'todos' 
+    ? data.vehicles 
+    : data.vehicles.filter(vehicle => vehicle.tipo === typeFilter);
+
   return (
     <div className="space-y-6">
       <div>
@@ -177,6 +202,24 @@ export const VehicleManagement = () => {
                   value={formData.numeroRegistro}
                   onChange={(e) => setFormData({ ...formData, numeroRegistro: e.target.value })}
                 />
+              </div>
+
+              <div>
+                <Label htmlFor="tipo">Tipo de Veículo</Label>
+                <div className="grid grid-cols-3 gap-2 mt-2">
+                  {(['micro_onibus', 'onibus', 'articulado'] as const).map((tipo) => (
+                    <Button
+                      key={tipo}
+                      type="button"
+                      variant={formData.tipo === tipo ? "default" : "outline"}
+                      className="flex flex-col items-center gap-1 h-auto py-3"
+                      onClick={() => setFormData({ ...formData, tipo })}
+                    >
+                      <span className="text-lg">{getVehicleTypeIcon(tipo)}</span>
+                      <span className="text-xs">{getVehicleTypeLabel(tipo)}</span>
+                    </Button>
+                  ))}
+                </div>
               </div>
 
               <div>
@@ -212,14 +255,27 @@ export const VehicleManagement = () => {
         {/* Lista de Veículos */}
         <Card className="md:col-span-2">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Car className="h-5 w-5" />
-              Veículos Cadastrados ({data.vehicles.length})
+            <CardTitle className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Car className="h-5 w-5" />
+                Veículos Cadastrados ({filteredVehicles.length})
+              </div>
+              <Select value={typeFilter} onValueChange={(value: Vehicle['tipo'] | 'todos') => setTypeFilter(value)}>
+                <SelectTrigger className="w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos os tipos</SelectItem>
+                  <SelectItem value="micro_onibus">🚐 Micro Ônibus</SelectItem>
+                  <SelectItem value="onibus">🚌 Ônibus</SelectItem>
+                  <SelectItem value="articulado">🚍 Articulado</SelectItem>
+                </SelectContent>
+              </Select>
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {data.vehicles.map((vehicle) => {
+              {filteredVehicles.map((vehicle) => {
                 const problems = data.problems.filter(p => 
                   p.vehicleId === vehicle.id && p.status === 'aberto'
                 ).length;
@@ -227,10 +283,14 @@ export const VehicleManagement = () => {
                 return (
                   <div key={vehicle.id} className="flex items-center justify-between p-4 border rounded-lg">
                     <div className="flex items-center gap-3">
+                      <span className="text-lg">{getVehicleTypeIcon(vehicle.tipo)}</span>
                       {getStatusIcon(vehicle.status)}
                       <div>
-                        <div className="font-medium">
+                        <div className="font-medium flex items-center gap-2">
                           Veículo {vehicle.numeroRegistro}
+                          <span className="text-sm text-muted-foreground">
+                            ({getVehicleTypeLabel(vehicle.tipo)})
+                          </span>
                         </div>
                         <div className="flex items-center gap-2 mt-1">
                           <Badge variant={getStatusColor(vehicle.status) as any}>
@@ -263,6 +323,11 @@ export const VehicleManagement = () => {
                   </div>
                 );
               })}
+              {filteredVehicles.length === 0 && data.vehicles.length > 0 && (
+                <div className="text-center text-muted-foreground py-8">
+                  Nenhum veículo encontrado para este filtro
+                </div>
+              )}
               {data.vehicles.length === 0 && (
                 <div className="text-center text-muted-foreground py-8">
                   Nenhum veículo cadastrado

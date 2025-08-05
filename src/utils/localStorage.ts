@@ -60,10 +60,10 @@ export const restoreBackup = (backupKey: string): boolean => {
 
 const getInitialData = (): FleetData => ({
   vehicles: [
-    { id: 1, numeroRegistro: "05", status: "operacao", createdAt: "2024-01-15T08:00:00Z" },
-    { id: 2, numeroRegistro: "12", status: "garagem", createdAt: "2024-01-20T09:30:00Z" },
-    { id: 3, numeroRegistro: "08", status: "manutencao", createdAt: "2024-02-01T10:15:00Z" },
-    { id: 4, numeroRegistro: "15", status: "operacao", createdAt: "2024-02-10T11:00:00Z" },
+    { id: 1, numeroRegistro: "05", tipo: "onibus", status: "operacao", createdAt: "2024-01-15T08:00:00Z" },
+    { id: 2, numeroRegistro: "12", tipo: "micro_onibus", status: "garagem", createdAt: "2024-01-20T09:30:00Z" },
+    { id: 3, numeroRegistro: "08", tipo: "articulado", status: "manutencao", createdAt: "2024-02-01T10:15:00Z" },
+    { id: 4, numeroRegistro: "15", tipo: "onibus", status: "operacao", createdAt: "2024-02-10T11:00:00Z" },
   ],
   drivers: [
     { id: 1, numeroRegistro: "M001", nome: "Carlos Silva", telefone: "(11) 99999-1111", createdAt: "2024-01-10T08:00:00Z" },
