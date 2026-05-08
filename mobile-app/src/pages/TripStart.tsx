@@ -9,6 +9,7 @@ import { MobileLayout } from '../components/MobileLayout';
 import { mobileStorage } from '../utils/storage';
 import { mobileAPI } from '../services/api';
 import { TripSession } from '../types/mobile';
+import { getFleetData } from '@/utils/localStorage';
 
 interface TripStartProps {
   onTripStarted: () => void;
@@ -21,6 +22,7 @@ export const TripStart = ({ onTripStarted, onBack }: TripStartProps) => {
   const [error, setError] = useState('');
   
   const driver = mobileStorage.getCurrentDriver();
+  const vehicles = getFleetData().vehicles;
 
   const handleStartTrip = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -109,12 +111,23 @@ export const TripStart = ({ onTripStarted, onBack }: TripStartProps) => {
                 <Input
                   id="vehicleNumber"
                   type="text"
+                  list="vehicle-options"
                   placeholder="Ex: 05"
                   value={vehicleNumber}
                   onChange={(e) => setVehicleNumber(e.target.value)}
                   disabled={isLoading}
                   className="text-center text-lg font-medium"
                 />
+                <datalist id="vehicle-options">
+                  {vehicles.map((vehicle) => (
+                    <option
+                      key={vehicle.firestoreId || vehicle.id}
+                      value={vehicle.numeroRegistro}
+                    >
+                      {vehicle.numeroRegistro}
+                    </option>
+                  ))}
+                </datalist>
               </div>
 
               {error && (

@@ -1,23 +1,53 @@
 import { getFleetData, saveFleetData } from "@/utils/localStorage";
 import { ProblemReport, APIResponse, TripHistory } from "../types/mobile";
 
+type FleetSnapshot = ReturnType<typeof getFleetData>;
+
 class MobileAPIService {
+  private findDriver(data: FleetSnapshot, driverNumber: string) {
+    let driver = data.drivers.find((item) =>
+      item.numeroRegistro === driverNumber ||
+      item.id.toString() === driverNumber ||
+      item.firestoreId === driverNumber
+    );
+
+    if (!driver) {
+      driver = {
+        id: Math.max(0, ...data.drivers.map((item) => item.id)) + 1,
+        firestoreId: driverNumber,
+        numeroRegistro: driverNumber,
+        nome: "Motorista Mobile",
+        status: "active",
+        createdAt: new Date().toISOString(),
+      };
+      data.drivers.push(driver);
+    }
+
+    return driver;
+  }
+
   async login(numeroRegistro: string): Promise<APIResponse<{ nome: string }>> {
     const data = getFleetData();
-    const driver = data.drivers.find((item) => item.numeroRegistro === numeroRegistro);
-    if (!driver) return { success: false, message: "Motorista não encontrado" };
+    const driver = data.drivers.find((item) =>
+      item.numeroRegistro === numeroRegistro ||
+      item.id.toString() === numeroRegistro ||
+      item.firestoreId === numeroRegistro
+    );
+
+    if (!driver) return { success: false, message: "Motorista nao encontrado" };
     return { success: true, data: { nome: driver.nome } };
   }
 
   async registrarSaida(vehicleNumber: string, driverNumber: string): Promise<APIResponse> {
     const data = getFleetData();
     const vehicle = data.vehicles.find((item) => item.numeroRegistro === vehicleNumber);
-    const driver = data.drivers.find((item) => item.numeroRegistro === driverNumber || item.id.toString() === driverNumber);
+    const driver = this.findDriver(data, driverNumber);
 
-    if (!vehicle || !driver) {
-      return { success: false, message: "Veículo ou motorista não encontrado" };
+    if (!vehicle) {
+      return { success: false, message: "Veiculo nao encontrado" };
     }
 
+    vehicle.status = "operacao";
     data.trips.push({
       id: Math.max(0, ...data.trips.map((trip) => trip.id)) + 1,
       vehicleId: vehicle.id,
@@ -28,22 +58,29 @@ class MobileAPIService {
     });
     saveFleetData(data);
 
-    return { success: true, message: "Saída registrada com sucesso" };
+    return { success: true, message: "Saida registrada com sucesso" };
   }
 
   async registrarRetorno(vehicleNumber: string, driverNumber: string, problems: ProblemReport[]): Promise<APIResponse> {
     const data = getFleetData();
     const vehicle = data.vehicles.find((item) => item.numeroRegistro === vehicleNumber);
-    const driver = data.drivers.find((item) => item.numeroRegistro === driverNumber || item.id.toString() === driverNumber);
+    const driver = this.findDriver(data, driverNumber);
 
-    if (!vehicle || !driver) {
-      return { success: false, message: "Veículo ou motorista não encontrado" };
+    if (!vehicle) {
+      return { success: false, message: "Veiculo nao encontrado" };
     }
 
-    const activeTrip = [...data.trips].reverse().find((trip) => trip.vehicleId === vehicle.id && trip.driverId === driver.id && !trip.retorno);
+    const activeTrip = [...data.trips].reverse().find((trip) =>
+      trip.vehicleId === vehicle.id &&
+      trip.driverId === driver.id &&
+      !trip.retorno
+    );
+
     if (activeTrip) {
       activeTrip.retorno = new Date().toISOString();
     }
+
+    vehicle.status = problems.length > 0 ? "manutencao" : "garagem";
 
     problems.forEach((problem) => {
       data.problems.push({
@@ -65,12 +102,13 @@ class MobileAPIService {
   async reportarProblema(problem: Omit<ProblemReport, "id" | "reportedAt">): Promise<APIResponse> {
     const data = getFleetData();
     const vehicle = data.vehicles.find((item) => item.numeroRegistro === problem.vehicleNumber);
-    const driver = data.drivers.find((item) => item.numeroRegistro === problem.driverNumber || item.id.toString() === problem.driverNumber);
+    const driver = this.findDriver(data, problem.driverNumber);
 
-    if (!vehicle || !driver) {
-      return { success: false, message: "Veículo ou motorista não encontrado" };
+    if (!vehicle) {
+      return { success: false, message: "Veiculo nao encontrado" };
     }
 
+    vehicle.status = "manutencao";
     data.problems.push({
       id: Math.max(0, ...data.problems.map((item) => item.id)) + 1,
       vehicleId: vehicle.id,
@@ -88,14 +126,23 @@ class MobileAPIService {
 
   async getHistorico(numeroRegistro: string): Promise<APIResponse<TripHistory[]>> {
     const data = getFleetData();
-    const driver = data.drivers.find((item) => item.numeroRegistro === numeroRegistro || item.id.toString() === numeroRegistro);
+    const driver = data.drivers.find((item) =>
+      item.numeroRegistro === numeroRegistro ||
+      item.id.toString() === numeroRegistro ||
+      item.firestoreId === numeroRegistro
+    );
+
     if (!driver) return { success: true, data: [] };
 
     const history = data.trips
       .filter((trip) => trip.driverId === driver.id)
       .map((trip) => {
         const vehicle = data.vehicles.find((item) => item.id === trip.vehicleId);
-        const problems = data.problems.filter((problem) => problem.driverId === driver.id && problem.vehicleId === trip.vehicleId);
+        const problems = data.problems.filter((problem) =>
+          problem.driverId === driver.id &&
+          problem.vehicleId === trip.vehicleId
+        );
+
         return {
           id: String(trip.id),
           vehicleNumber: vehicle?.numeroRegistro || "",
@@ -118,7 +165,7 @@ class MobileAPIService {
 
   async syncData(): Promise<APIResponse> {
     saveFleetData(getFleetData());
-    return { success: true, message: "Sincronização solicitada" };
+    return { success: true, message: "Sincronizacao solicitada" };
   }
 }
 

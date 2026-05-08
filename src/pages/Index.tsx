@@ -13,7 +13,15 @@ import { SyncStatusBadge } from "@/components/sync/SyncStatusBadge";
 const Index = () => {
   const [activeView, setActiveView] = useState("dashboard");
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
-  const { syncStatus } = useFleetData();
+  const { data, syncStatus } = useFleetData();
+  const dataVersion = [
+    data.vehicles.length,
+    data.drivers.length,
+    data.problems.length,
+    data.revisions.length,
+    data.trips.length,
+    data.vehicles.map((vehicle) => `${vehicle.id}:${vehicle.status}`).join("|"),
+  ].join("-");
 
   const renderContent = () => {
     switch (activeView) {
@@ -48,7 +56,9 @@ const Index = () => {
         <div className="flex justify-end mb-2">
           <SyncStatusBadge status={syncStatus} />
         </div>
-        {renderContent()}
+        <div key={`${activeView}-${dataVersion}`}>
+          {renderContent()}
+        </div>
       </div>
     </div>
   );

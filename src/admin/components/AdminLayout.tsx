@@ -1,7 +1,8 @@
 import { ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
-  LayoutDashboard, 
+  LayoutDashboard,
+  Car,
   Key, 
   ScrollText, 
   LogOut,
@@ -17,6 +18,7 @@ interface AdminLayoutProps {
 
 const menuItems = [
   { path: '/admin', label: 'Dashboard', icon: LayoutDashboard },
+  { path: '/desktop', label: 'Gestão de Frota', icon: Car },
   { path: '/admin/licenses', label: 'Licenças', icon: Key },
   { path: '/admin/logs', label: 'Logs', icon: ScrollText },
 ];

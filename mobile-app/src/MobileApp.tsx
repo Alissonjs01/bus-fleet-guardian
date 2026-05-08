@@ -7,12 +7,14 @@ import { ProblemReport } from "./pages/ProblemReport";
 import { History } from "./pages/History";
 import { useAuth } from "@/contexts/AuthContext";
 import { logout } from "@/services/authService";
+import { useFleetData } from "@/hooks/useFleetData";
 
 type MobileView = "dashboard" | "trip-start" | "trip-end" | "problem-report" | "history";
 
 export const MobileApp = () => {
   const [currentView, setCurrentView] = useState<MobileView>("dashboard");
   const { user } = useAuth();
+  useFleetData();
 
   useEffect(() => {
     if (!user) return;
