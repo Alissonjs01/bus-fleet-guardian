@@ -98,7 +98,10 @@ const LicenseList = () => {
     const result = await createLicense(new Date(newExpirationDate).toISOString());
     
     if (result.success) {
-      toast({ title: 'Sucesso', description: 'Licença criada com sucesso' });
+      toast({
+        title: 'Licença criada com sucesso',
+        description: result.license?.key ? `Chave: ${result.license.key}` : 'Copie a chave agora; depois ela fica mascarada.',
+      });
       setCreateDialogOpen(false);
       setNewExpirationDate('');
       loadLicenses();
