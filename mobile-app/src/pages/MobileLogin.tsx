@@ -33,10 +33,12 @@ export const MobileLogin = ({ onLoginSuccess }: MobileLoginProps) => {
       const response = await mobileAPI.login(numeroRegistro.trim());
       
       if (response.success && response.data) {
-        // Salvar dados do motorista
         mobileStorage.setCurrentDriver({
           numeroRegistro: numeroRegistro.trim(),
           nome: response.data.nome,
+          firestoreId: response.data.firestoreId,
+          companyId: response.data.companyId,
+          status: response.data.status,
           isLoggedIn: true,
         });
         

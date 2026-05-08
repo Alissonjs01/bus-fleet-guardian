@@ -5,8 +5,9 @@ import { getFleetData } from "@/utils/localStorage";
 import type { FleetData } from "@/types/fleet";
 import { useSyncStatus } from "@/hooks/useSyncStatus";
 
-export function useFleetData() {
+export function useFleetData(companyIdOverride?: string) {
   const { user } = useAuth();
+  const activeCompanyId = user?.companyId || companyIdOverride;
   const [data, setData] = useState<FleetData>(() => getFleetData());
   const [loading, setLoading] = useState(true);
   const [pendingWrites, setPendingWrites] = useState(false);
@@ -19,7 +20,7 @@ export function useFleetData() {
   }, [data]);
 
   useEffect(() => {
-    if (!user?.companyId) {
+    if (!activeCompanyId) {
       setLoading(false);
       return;
     }
@@ -27,12 +28,12 @@ export function useFleetData() {
     setLoading(true);
     setError(undefined);
 
-    createCompanyIfMissing(user.companyId)
-      .then(() => seedInitialFleetData(user.companyId))
+    createCompanyIfMissing(activeCompanyId)
+      .then(() => seedInitialFleetData(activeCompanyId))
       .catch((err) => setError(err instanceof Error ? err.message : "Erro ao preparar dados"));
 
     return subscribeFleetData(
-      user.companyId,
+      activeCompanyId,
       (fleetData, hasPendingWrites) => {
         setData(fleetData);
         dataRef.current = fleetData;
@@ -44,29 +45,29 @@ export function useFleetData() {
         setLoading(false);
       },
     );
-  }, [user?.companyId]);
+  }, [activeCompanyId]);
 
   useEffect(() => {
-    if (!user?.companyId) return;
+    if (!activeCompanyId) return;
 
     const handleLocalChange = (event: Event) => {
       const detail = (event as CustomEvent<FleetData>).detail;
       if (!detail) return;
-      syncCompanyFleetChanges(user.companyId, dataRef.current, detail).catch((err) => {
+      syncCompanyFleetChanges(activeCompanyId, dataRef.current, detail).catch((err) => {
         setError(err instanceof Error ? err.message : "Erro ao sincronizar alterações");
       });
     };
 
     window.addEventListener("fleet-cache-updated", handleLocalChange);
     return () => window.removeEventListener("fleet-cache-updated", handleLocalChange);
-  }, [user?.companyId]);
+  }, [activeCompanyId]);
 
   return {
     data,
     loading,
     error,
     syncStatus,
-    companyId: user?.companyId || "demo-company",
+    companyId: activeCompanyId || "demo-company",
     userId: user?.id || "",
   };
 }

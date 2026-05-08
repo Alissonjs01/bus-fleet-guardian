@@ -2,27 +2,61 @@ import { MobileDriver, TripSession, ProblemReport, OfflineAction } from '../type
 
 const MOBILE_STORAGE_KEYS = {
   DRIVER: 'mobile_current_driver',
+  DRIVER_SESSION: 'fleet_driver_session',
   TRIP_SESSION: 'mobile_current_trip',
   PENDING_PROBLEMS: 'mobile_pending_problems',
   OFFLINE_QUEUE: 'mobile_offline_queue',
 };
 
+function todayKey() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function isSessionValid(sessionDate?: string) {
+  return !!sessionDate && sessionDate === todayKey();
+}
+
 export const mobileStorage = {
-  // Driver management
   setCurrentDriver: (driver: MobileDriver) => {
-    localStorage.setItem(MOBILE_STORAGE_KEYS.DRIVER, JSON.stringify(driver));
+    sessionStorage.setItem(MOBILE_STORAGE_KEYS.DRIVER_SESSION, JSON.stringify({
+      registrationNumber: driver.numeroRegistro,
+      driverId: driver.firestoreId,
+      sessionDate: todayKey(),
+    }));
+    localStorage.setItem(MOBILE_STORAGE_KEYS.DRIVER, JSON.stringify({ ...driver, sessionDate: todayKey() }));
   },
 
   getCurrentDriver: (): MobileDriver | null => {
+    const session = sessionStorage.getItem(MOBILE_STORAGE_KEYS.DRIVER_SESSION);
+    if (!session) return null;
+
+    const parsedSession = JSON.parse(session);
+    if (!isSessionValid(parsedSession.sessionDate)) {
+      mobileStorage.clearCurrentDriver();
+      mobileStorage.clearCurrentTrip();
+      mobileStorage.clearPendingProblems();
+      return null;
+    }
+
     const stored = localStorage.getItem(MOBILE_STORAGE_KEYS.DRIVER);
-    return stored ? JSON.parse(stored) : null;
+    if (!stored) return null;
+
+    const driver = JSON.parse(stored);
+    if (!isSessionValid(driver.sessionDate)) {
+      mobileStorage.clearCurrentDriver();
+      mobileStorage.clearCurrentTrip();
+      mobileStorage.clearPendingProblems();
+      return null;
+    }
+
+    return driver;
   },
 
   clearCurrentDriver: () => {
     localStorage.removeItem(MOBILE_STORAGE_KEYS.DRIVER);
+    sessionStorage.removeItem(MOBILE_STORAGE_KEYS.DRIVER_SESSION);
   },
 
-  // Trip session management
   setCurrentTrip: (trip: TripSession) => {
     localStorage.setItem(MOBILE_STORAGE_KEYS.TRIP_SESSION, JSON.stringify(trip));
   },
@@ -36,7 +70,6 @@ export const mobileStorage = {
     localStorage.removeItem(MOBILE_STORAGE_KEYS.TRIP_SESSION);
   },
 
-  // Problems management
   addPendingProblem: (problem: ProblemReport) => {
     const existing = mobileStorage.getPendingProblems();
     existing.push(problem);
@@ -58,7 +91,6 @@ export const mobileStorage = {
     localStorage.setItem(MOBILE_STORAGE_KEYS.PENDING_PROBLEMS, JSON.stringify(filtered));
   },
 
-  // Offline queue for API calls
   addToOfflineQueue: (action: OfflineAction) => {
     const queue = mobileStorage.getOfflineQueue();
     queue.push(action);
@@ -74,13 +106,11 @@ export const mobileStorage = {
     localStorage.removeItem(MOBILE_STORAGE_KEYS.OFFLINE_QUEUE);
   },
 
-  // Check if user is logged in
   isLoggedIn: (): boolean => {
     const driver = mobileStorage.getCurrentDriver();
     return driver?.isLoggedIn || false;
   },
 
-  // Check if trip is active
   hasActiveTrip: (): boolean => {
     const trip = mobileStorage.getCurrentTrip();
     return trip?.isActive || false;

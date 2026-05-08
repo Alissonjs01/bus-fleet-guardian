@@ -6,7 +6,7 @@ import { Lock, Loader2, KeyRound } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { activateAccessKey, bootstrapFirstAdmin, loginWithEmail } from "@/services/authService";
 import { useAuth } from "@/contexts/AuthContext";
-import { isMobileViewport } from "@/services/deviceService";
+import { isMobileDevice } from "@/utils/device";
 import { isExclusiveAdmin } from "@/config/admin";
 
 const Login = () => {
@@ -34,7 +34,7 @@ const Login = () => {
       return;
     }
 
-    if (isMobileViewport()) {
+    if (isMobileDevice()) {
       navigate("/mobile", { replace: true });
       return;
     }

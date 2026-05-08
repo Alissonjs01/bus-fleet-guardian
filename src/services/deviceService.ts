@@ -1,3 +1,5 @@
+import { isMobileDevice } from "@/utils/device";
+
 const DEVICE_ID_KEY = "fleet_device_id";
 
 export function getDeviceId(): string {
@@ -14,5 +16,5 @@ export function getUserAgent(): string {
 }
 
 export function isMobileViewport(): boolean {
-  return window.matchMedia("(max-width: 768px), (pointer: coarse)").matches;
+  return isMobileDevice();
 }

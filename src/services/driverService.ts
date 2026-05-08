@@ -59,6 +59,36 @@ export async function getDriverForUser(user: AppUser): Promise<Driver | null> {
   return null;
 }
 
+export async function getDriverByRegistration(registrationNumber: string, companyId = "demo-company"): Promise<Driver | null> {
+  const normalizedRegistration = normalizeRegistration(registrationNumber);
+
+  const byRegistration = await getDocs(query(
+    collection(db, "drivers"),
+    where("companyId", "==", companyId),
+    where("registrationNumber", "==", normalizedRegistration),
+    limit(1),
+  ));
+
+  if (!byRegistration.empty) {
+    const item = byRegistration.docs[0];
+    return normalizeDriver(item.id, item.data());
+  }
+
+  const byLegacyRegistration = await getDocs(query(
+    collection(db, "drivers"),
+    where("companyId", "==", companyId),
+    where("numeroRegistro", "==", normalizedRegistration),
+    limit(1),
+  ));
+
+  if (!byLegacyRegistration.empty) {
+    const item = byLegacyRegistration.docs[0];
+    return normalizeDriver(item.id, item.data());
+  }
+
+  return null;
+}
+
 export async function updateDriverOperationalStatus(driver: Driver, status: Driver["status"]) {
   if (!driver.firestoreId) return;
   await updateDoc(doc(db, "drivers", driver.firestoreId), {

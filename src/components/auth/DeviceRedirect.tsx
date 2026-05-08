@@ -1,14 +1,19 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
-import { isMobileViewport } from "@/services/deviceService";
 import { isExclusiveAdmin } from "@/config/admin";
+import { isMobileDevice } from "@/utils/device";
 
 export function DeviceRedirect() {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
 
   useEffect(() => {
+    if (isMobileDevice()) {
+      navigate("/mobile", { replace: true });
+      return;
+    }
+
     if (loading) return;
     if (!user) {
       navigate("/login", { replace: true });
@@ -16,11 +21,6 @@ export function DeviceRedirect() {
     }
 
     if (user.role === "motorista") {
-      navigate("/mobile", { replace: true });
-      return;
-    }
-
-    if (isMobileViewport()) {
       navigate("/mobile", { replace: true });
       return;
     }

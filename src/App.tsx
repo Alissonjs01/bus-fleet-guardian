@@ -17,6 +17,9 @@ import { AdminRoute } from "@/components/auth/AdminRoute";
 import { ManagerRoute } from "@/components/auth/ManagerRoute";
 import { MobileRoute } from "@/components/auth/MobileRoute";
 import { MobileApp } from "../mobile-app/src/MobileApp";
+import { resetLegacySessionsOnce } from "@/utils/sessionReset";
+
+resetLegacySessionsOnce();
 
 const queryClient = new QueryClient();
 
@@ -76,11 +79,9 @@ const App = () => (
             <Route
               path="/mobile"
               element={
-                <AuthGuard>
-                  <MobileRoute>
-                    <MobileApp />
-                  </MobileRoute>
-                </AuthGuard>
+                <MobileRoute>
+                  <MobileApp />
+                </MobileRoute>
               }
             />
 

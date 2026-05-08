@@ -1,6 +1,7 @@
 import { getFleetData, normalizeRegistration, saveFleetData } from "@/utils/localStorage";
 import { ProblemReport, APIResponse, TripHistory } from "../types/mobile";
-import { DRIVER_STATUSES } from "@/constants/driverStatus";
+import { DRIVER_STATUSES, type DriverStatus } from "@/constants/driverStatus";
+import { getDriverByRegistration } from "@/services/driverService";
 
 type FleetSnapshot = ReturnType<typeof getFleetData>;
 
@@ -15,17 +16,29 @@ class MobileAPIService {
     );
   }
 
-  async login(numeroRegistro: string): Promise<APIResponse<{ nome: string }>> {
-    const data = getFleetData();
-    const normalizedDriverNumber = normalizeRegistration(numeroRegistro);
-    const driver = data.drivers.find((item) =>
-      item.numeroRegistro === normalizedDriverNumber ||
-      item.id.toString() === normalizedDriverNumber ||
-      item.firestoreId === normalizedDriverNumber
-    );
+  async login(numeroRegistro: string): Promise<APIResponse<{ nome: string; firestoreId?: string; companyId?: string; status?: DriverStatus }>> {
+    const driver = await getDriverByRegistration(numeroRegistro);
 
-    if (!driver) return { success: false, message: "Motorista nao encontrado" };
-    return { success: true, data: { nome: driver.nome } };
+    if (!driver) return { success: false, message: "Registro de motorista não encontrado." };
+    if (driver.status === DRIVER_STATUSES.BLOCKED) {
+      return { success: false, message: "Seu acesso de motorista está bloqueado. Procure o gestor da frota." };
+    }
+    if (driver.status === DRIVER_STATUSES.INACTIVE) {
+      return { success: false, message: "Seu registro ainda não foi liberado pelo gestor." };
+    }
+    if (driver.status === DRIVER_STATUSES.ON_ROUTE) {
+      return { success: false, message: "Motorista já possui rota ativa." };
+    }
+
+    return {
+      success: true,
+      data: {
+        nome: driver.name,
+        firestoreId: driver.firestoreId,
+        companyId: driver.companyId,
+        status: driver.status,
+      },
+    };
   }
 
   async registrarSaida(vehicleNumber: string, driverNumber: string): Promise<APIResponse> {
