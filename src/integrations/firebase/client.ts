@@ -1,16 +1,20 @@
 import { initializeApp, getApps } from "firebase/app";
 import { getAnalytics, isSupported } from "firebase/analytics";
 import {
+  getAuth,
   initializeAuth,
   browserLocalPersistence,
   browserPopupRedirectResolver,
   indexedDBLocalPersistence,
+  type Auth,
 } from "firebase/auth";
 import {
   CACHE_SIZE_UNLIMITED,
+  getFirestore,
   initializeFirestore,
   persistentLocalCache,
   persistentMultipleTabManager,
+  type Firestore,
 } from "firebase/firestore";
 import { getFunctions } from "firebase/functions";
 
@@ -34,17 +38,34 @@ if (missingConfig.length > 0) {
 
 export const firebaseApp = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
 
-export const auth = initializeAuth(firebaseApp, {
-  persistence: [indexedDBLocalPersistence, browserLocalPersistence],
-  popupRedirectResolver: browserPopupRedirectResolver,
-});
+function createAuth(): Auth {
+  try {
+    return initializeAuth(firebaseApp, {
+      persistence: [indexedDBLocalPersistence, browserLocalPersistence],
+      popupRedirectResolver: browserPopupRedirectResolver,
+    });
+  } catch (error) {
+    console.warn("Firebase Auth usando inicialização padrão.", error);
+    return getAuth(firebaseApp);
+  }
+}
 
-export const db = initializeFirestore(firebaseApp, {
-  localCache: persistentLocalCache({
-    cacheSizeBytes: CACHE_SIZE_UNLIMITED,
-    tabManager: persistentMultipleTabManager(),
-  }),
-});
+function createFirestore(): Firestore {
+  try {
+    return initializeFirestore(firebaseApp, {
+      localCache: persistentLocalCache({
+        cacheSizeBytes: CACHE_SIZE_UNLIMITED,
+        tabManager: persistentMultipleTabManager(),
+      }),
+    });
+  } catch (error) {
+    console.warn("Firestore offline cache indisponível; usando modo padrão.", error);
+    return getFirestore(firebaseApp);
+  }
+}
+
+export const auth = createAuth();
+export const db = createFirestore();
 
 export const functions = getFunctions(firebaseApp, "us-central1");
 
