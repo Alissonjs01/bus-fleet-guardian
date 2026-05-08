@@ -18,7 +18,7 @@ interface AdminLayoutProps {
 
 const menuItems = [
   { path: '/admin', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/desktop', label: 'Gestão de Frota', icon: Car },
+  { path: '/gestor', label: 'Gestão de Frota', icon: Car },
   { path: '/admin/licenses', label: 'Licenças', icon: Key },
   { path: '/admin/logs', label: 'Logs', icon: ScrollText },
 ];

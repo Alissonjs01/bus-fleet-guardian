@@ -15,10 +15,12 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { db } from "@/integrations/firebase/client";
-import type { Driver, FleetData, Problem, Revision, Trip, Vehicle } from "@/types/fleet";
+import { normalizeDriverStatus } from "@/constants/driverStatus";
+import { normalizeVehicleType } from "@/constants/vehicleTypes";
+import type { Driver, FleetData, Problem, Revision, Route, Trip, Vehicle } from "@/types/fleet";
 import { getInitialFleetData, saveFleetCache } from "@/utils/localStorage";
 
-type FleetCollectionName = "vehicles" | "drivers" | "issues" | "maintenance" | "trips";
+type FleetCollectionName = "vehicles" | "drivers" | "issues" | "maintenance" | "trips" | "routes";
 
 const COLLECTIONS: Record<keyof FleetData, FleetCollectionName> = {
   vehicles: "vehicles",
@@ -26,6 +28,7 @@ const COLLECTIONS: Record<keyof FleetData, FleetCollectionName> = {
   problems: "issues",
   revisions: "maintenance",
   trips: "trips",
+  routes: "routes",
 };
 
 function toIso(value: unknown): string {
@@ -38,12 +41,14 @@ function toIso(value: unknown): string {
 }
 
 function normalizeVehicle(id: string, data: DocumentData): Vehicle {
+  const vehicleType = normalizeVehicleType(data.vehicleType || data.tipo);
   return {
     id: Number(data.legacyId || data.id || 0),
     firestoreId: id,
     companyId: data.companyId,
     numeroRegistro: data.numeroRegistro || data.plate || "",
-    tipo: data.tipo || "onibus",
+    tipo: vehicleType,
+    vehicleType,
     status: data.status || "garagem",
     createdAt: toIso(data.createdAt),
     updatedAt: toIso(data.updatedAt),
@@ -51,16 +56,25 @@ function normalizeVehicle(id: string, data: DocumentData): Vehicle {
 }
 
 function normalizeDriver(id: string, data: DocumentData): Driver {
+  const registrationNumber = data.registrationNumber || data.numeroRegistro || "";
+  const name = data.name || data.nome || "";
+  const phone = data.phone || data.telefone;
   return {
     id: Number(data.legacyId || data.id || 0),
     firestoreId: id,
     companyId: data.companyId,
-    numeroRegistro: data.numeroRegistro || "",
-    nome: data.nome || data.name || "",
-    telefone: data.telefone || data.phone,
-    status: data.status || "active",
+    numeroRegistro: registrationNumber,
+    registrationNumber,
+    nome: name,
+    name,
+    telefone: phone,
+    phone,
+    document: data.document,
+    userId: data.userId,
+    status: normalizeDriverStatus(data.status),
     createdAt: toIso(data.createdAt),
     updatedAt: toIso(data.updatedAt),
+    createdBy: data.createdBy,
   };
 }
 
@@ -111,6 +125,21 @@ function normalizeTrip(id: string, data: DocumentData): Trip {
   };
 }
 
+function normalizeRoute(id: string, data: DocumentData): Route {
+  return {
+    id: Number(data.legacyId || data.id || 0),
+    firestoreId: id,
+    companyId: data.companyId,
+    vehicleId: Number(data.vehicleId || 0),
+    driverId: Number(data.driverId || 0),
+    driverUserId: data.driverUserId,
+    status: data.status || "active",
+    startedAt: data.startedAt || toIso(data.createdAt),
+    finishedAt: data.finishedAt ? toIso(data.finishedAt) : undefined,
+    createdAt: toIso(data.createdAt),
+  };
+}
+
 function withCompany<T extends Record<string, unknown>>(companyId: string, data: T) {
   return {
     ...data,
@@ -123,16 +152,18 @@ function withoutUndefined<T extends Record<string, unknown>>(data: T) {
   return Object.fromEntries(Object.entries(data).filter(([, value]) => value !== undefined));
 }
 
-function recordKey(record: Vehicle | Driver | Problem | Revision | Trip) {
+type FleetRecord = Vehicle | Driver | Problem | Revision | Trip | Route;
+
+function recordKey(record: FleetRecord) {
   return record.firestoreId || String(record.id);
 }
 
-function hasChanged(previous: Vehicle | Driver | Problem | Revision | Trip | undefined, next: Vehicle | Driver | Problem | Revision | Trip) {
+function hasChanged(previous: FleetRecord | undefined, next: FleetRecord) {
   if (!previous) return true;
   return JSON.stringify(previous) !== JSON.stringify(next);
 }
 
-function serializeRecord(companyId: string, collectionName: FleetCollectionName, record: Vehicle | Driver | Problem | Revision | Trip) {
+function serializeRecord(companyId: string, collectionName: FleetCollectionName, record: FleetRecord) {
   const base = withoutUndefined({
     ...record,
     legacyId: record.id,
@@ -143,12 +174,22 @@ function serializeRecord(companyId: string, collectionName: FleetCollectionName,
 
   if (collectionName === "vehicles") {
     const vehicle = record as Vehicle;
-    return withoutUndefined({ ...base, plate: vehicle.numeroRegistro });
+    const vehicleType = normalizeVehicleType(vehicle.vehicleType || vehicle.tipo);
+    return withoutUndefined({ ...base, plate: vehicle.numeroRegistro, tipo: vehicleType, vehicleType });
   }
 
   if (collectionName === "drivers") {
     const driver = record as Driver;
-    return withoutUndefined({ ...base, name: driver.nome, phone: driver.telefone || "", status: driver.status || "active" });
+    return withoutUndefined({
+      ...base,
+      name: driver.name || driver.nome,
+      nome: driver.nome || driver.name,
+      phone: driver.phone || driver.telefone || "",
+      telefone: driver.telefone || driver.phone || "",
+      registrationNumber: driver.registrationNumber || driver.numeroRegistro,
+      numeroRegistro: driver.numeroRegistro || driver.registrationNumber,
+      status: normalizeDriverStatus(driver.status),
+    });
   }
 
   if (collectionName === "issues") {
@@ -173,12 +214,17 @@ function serializeRecord(companyId: string, collectionName: FleetCollectionName,
     });
   }
 
+  if (collectionName === "routes") {
+    const route = record as Route;
+    return withoutUndefined({
+      ...base,
+      startedAt: route.startedAt,
+      finishedAt: route.finishedAt || null,
+    });
+  }
+
   const trip = record as Trip;
-  return withoutUndefined({
-    ...base,
-    startTime: trip.saida,
-    endTime: trip.retorno || null,
-  });
+  return withoutUndefined({ ...base, startTime: trip.saida, endTime: trip.retorno || null });
 }
 
 export function subscribeFleetData(
@@ -192,6 +238,7 @@ export function subscribeFleetData(
     problems: [],
     revisions: [],
     trips: [],
+    routes: [],
   };
   const pending: Record<keyof FleetData, boolean> = {
     vehicles: false,
@@ -199,6 +246,7 @@ export function subscribeFleetData(
     problems: false,
     revisions: false,
     trips: false,
+    routes: false,
   };
 
   const emit = () => {
@@ -225,6 +273,7 @@ export function subscribeFleetData(
         if (key === "problems") data.problems = docs.map((item) => normalizeProblem(item.id, item.data()));
         if (key === "revisions") data.revisions = docs.map((item) => normalizeRevision(item.id, item.data()));
         if (key === "trips") data.trips = docs.map((item) => normalizeTrip(item.id, item.data()));
+        if (key === "routes") data.routes = docs.map((item) => normalizeRoute(item.id, item.data()));
 
         emit();
       },
@@ -249,6 +298,8 @@ export async function seedInitialFleetData(companyId: string) {
       legacyId: vehicle.id,
       companyId,
       plate: vehicle.numeroRegistro,
+      tipo: normalizeVehicleType(vehicle.vehicleType || vehicle.tipo),
+      vehicleType: normalizeVehicleType(vehicle.vehicleType || vehicle.tipo),
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
@@ -260,9 +311,15 @@ export async function seedInitialFleetData(companyId: string) {
       ...driver,
       legacyId: driver.id,
       companyId,
-      name: driver.nome,
-      phone: driver.telefone || "",
-      status: "active",
+      name: driver.name || driver.nome,
+      nome: driver.nome || driver.name,
+      registrationNumber: driver.registrationNumber || driver.numeroRegistro,
+      numeroRegistro: driver.numeroRegistro || driver.registrationNumber,
+      phone: driver.phone || driver.telefone || "",
+      telefone: driver.telefone || driver.phone || "",
+      document: driver.document || "",
+      userId: driver.userId || null,
+      status: normalizeDriverStatus(driver.status),
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
@@ -306,6 +363,8 @@ export async function upsertVehicle(companyId: string, vehicle: Vehicle) {
     ...vehicle,
     legacyId: vehicle.id,
     plate: vehicle.numeroRegistro,
+    tipo: normalizeVehicleType(vehicle.vehicleType || vehicle.tipo),
+    vehicleType: normalizeVehicleType(vehicle.vehicleType || vehicle.tipo),
     createdAt: vehicle.createdAt || new Date().toISOString(),
   });
 
@@ -330,9 +389,15 @@ export async function upsertDriver(companyId: string, driver: Driver) {
   const payload = withCompany(companyId, {
     ...driver,
     legacyId: driver.id,
-    name: driver.nome,
-    phone: driver.telefone || "",
-    status: driver.status || "active",
+    name: driver.name || driver.nome,
+    nome: driver.nome || driver.name,
+    registrationNumber: driver.registrationNumber || driver.numeroRegistro,
+    numeroRegistro: driver.numeroRegistro || driver.registrationNumber,
+    phone: driver.phone || driver.telefone || "",
+    telefone: driver.telefone || driver.phone || "",
+    document: driver.document || "",
+    userId: driver.userId || null,
+    status: normalizeDriverStatus(driver.status),
     createdAt: driver.createdAt || new Date().toISOString(),
   });
 
@@ -414,12 +479,13 @@ export async function createCompanyIfMissing(companyId: string, name = "Empresa 
 
 export async function replaceCompanyFleetData(companyId: string, fleetData: FleetData) {
   const batch = writeBatch(db);
-  const targets: Array<[FleetCollectionName, Array<Vehicle | Driver | Problem | Revision | Trip>]> = [
+  const targets: Array<[FleetCollectionName, Array<FleetRecord>]> = [
     ["vehicles", fleetData.vehicles],
     ["drivers", fleetData.drivers],
     ["issues", fleetData.problems],
     ["maintenance", fleetData.revisions],
     ["trips", fleetData.trips],
+    ["routes", fleetData.routes],
   ];
 
   targets.forEach(([collectionName, records]) => {
@@ -439,12 +505,13 @@ export async function replaceCompanyFleetData(companyId: string, fleetData: Flee
 export async function syncCompanyFleetChanges(companyId: string, previousData: FleetData, nextData: FleetData) {
   const batch = writeBatch(db);
   let operations = 0;
-  const targets: Array<[keyof FleetData, FleetCollectionName, Array<Vehicle | Driver | Problem | Revision | Trip>, Array<Vehicle | Driver | Problem | Revision | Trip>]> = [
+  const targets: Array<[keyof FleetData, FleetCollectionName, Array<FleetRecord>, Array<FleetRecord>]> = [
     ["vehicles", "vehicles", previousData.vehicles, nextData.vehicles],
     ["drivers", "drivers", previousData.drivers, nextData.drivers],
     ["problems", "issues", previousData.problems, nextData.problems],
     ["revisions", "maintenance", previousData.revisions, nextData.revisions],
     ["trips", "trips", previousData.trips, nextData.trips],
+    ["routes", "routes", previousData.routes || [], nextData.routes || []],
   ];
 
   targets.forEach(([, collectionName, previousRecords, nextRecords]) => {

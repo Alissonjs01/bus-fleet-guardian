@@ -10,7 +10,7 @@ import { Loader2, AlertTriangle, Camera } from 'lucide-react';
 import { MobileLayout } from '../components/MobileLayout';
 import { mobileStorage } from '../utils/storage';
 import { mobileAPI } from '../services/api';
-import { ProblemReport as ProblemReportType } from '../types/mobile';
+import { ProblemCategory, ProblemReport as ProblemReportType, ProblemSeverity } from '../types/mobile';
 
 interface ProblemReportProps {
   onProblemReported: () => void;
@@ -24,18 +24,18 @@ const categorias = [
   { value: 'limpeza', label: 'Limpeza', icon: '🧽' },
   { value: 'pneus', label: 'Pneus', icon: '🛞' },
   { value: 'outros', label: 'Outros', icon: '❓' },
-];
+] satisfies Array<{ value: ProblemCategory; label: string; icon: string }>;
 
 const gravidades = [
   { value: 'baixa', label: 'Baixa', color: 'bg-blue-500' },
   { value: 'media', label: 'Média', color: 'bg-yellow-500' },
   { value: 'alta', label: 'Alta', color: 'bg-orange-500' },
   { value: 'critica', label: 'Crítica', color: 'bg-red-500' },
-];
+] satisfies Array<{ value: ProblemSeverity; label: string; color: string }>;
 
 export const ProblemReport = ({ onProblemReported, onBack }: ProblemReportProps) => {
-  const [categoria, setCategoria] = useState('');
-  const [gravidade, setGravidade] = useState('');
+  const [categoria, setCategoria] = useState<ProblemCategory | ''>('');
+  const [gravidade, setGravidade] = useState<ProblemSeverity | ''>('');
   const [observacao, setObservacao] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -63,8 +63,8 @@ export const ProblemReport = ({ onProblemReported, onBack }: ProblemReportProps)
       const problemData: Omit<ProblemReportType, 'id' | 'reportedAt'> = {
         vehicleNumber: currentTrip.vehicleNumber,
         driverNumber: driver.numeroRegistro,
-        categoria: categoria as any,
-        gravidade: gravidade as any,
+        categoria,
+        gravidade,
         observacao: observacao.trim(),
       };
 
@@ -85,8 +85,8 @@ export const ProblemReport = ({ onProblemReported, onBack }: ProblemReportProps)
         id: `problem_${Date.now()}`,
         vehicleNumber: currentTrip.vehicleNumber,
         driverNumber: driver.numeroRegistro,
-        categoria: categoria as any,
-        gravidade: gravidade as any,
+        categoria,
+        gravidade,
         observacao: observacao.trim(),
         reportedAt: new Date().toISOString(),
       };

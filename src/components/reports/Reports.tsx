@@ -8,6 +8,7 @@ import { Calendar, Download, FileText, BarChart3, TrendingUp, Filter } from "luc
 import { StatsCard } from "@/components/dashboard/StatsCard";
 import { getFleetData } from "@/utils/localStorage";
 import { format } from "date-fns";
+import type { BadgeProps } from "@/components/ui/badge";
 
 export const Reports = () => {
   const [dateRange, setDateRange] = useState("last30");
@@ -20,6 +21,12 @@ export const Reports = () => {
   const totalReports = fleetData.problems.length + fleetData.revisions.length;
   const openProblems = fleetData.problems.filter(p => p.status === "aberto").length;
   const completedRevisions = fleetData.revisions.length;
+  const problemCategories = ['eletrica', 'mecanica', 'funilaria', 'limpeza', 'pneus', 'outros'];
+  const monthlyTrend = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho'].map((mes, index) => ({
+    mes,
+    count: fleetData.problems.filter((problem) => new Date(problem.createdAt).getMonth() === index).length +
+      fleetData.revisions.filter((revision) => new Date(revision.createdAt).getMonth() === index).length,
+  }));
   
   // Dados fictícios para relatórios
   const mockReports = [
@@ -72,13 +79,13 @@ export const Reports = () => {
   };
 
   const getTypeBadge = (type: string) => {
-    const variants = {
+    const variants: Record<string, BadgeProps["variant"]> = {
       problemas: "destructive",
       revisoes: "default",
       geral: "secondary",
       desempenho: "outline"
     };
-    return <Badge variant={variants[type as keyof typeof variants] as any}>{getTypeLabel(type)}</Badge>;
+    return <Badge variant={variants[type] || "secondary"}>{getTypeLabel(type)}</Badge>;
   };
 
   return (
@@ -237,7 +244,7 @@ export const Reports = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {['elétrica', 'mecânica', 'funilaria', 'limpeza', 'pneus'].map((categoria, index) => {
+              {problemCategories.map((categoria) => {
                 const count = fleetData.problems.filter(p => p.categoria === categoria).length;
                 const percentage = totalReports > 0 ? (count / totalReports) * 100 : 0;
                 return (
@@ -265,8 +272,7 @@ export const Reports = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho'].map((mes, index) => {
-                const count = Math.floor(Math.random() * 20) + 5; // Dados fictícios
+              {monthlyTrend.map(({ mes, count }) => {
                 return (
                   <div key={mes} className="flex items-center justify-between">
                     <span className="text-sm">{mes}</span>

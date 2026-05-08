@@ -1,29 +1,18 @@
 import { getFleetData, normalizeRegistration, saveFleetData } from "@/utils/localStorage";
 import { ProblemReport, APIResponse, TripHistory } from "../types/mobile";
+import { DRIVER_STATUSES } from "@/constants/driverStatus";
 
 type FleetSnapshot = ReturnType<typeof getFleetData>;
 
 class MobileAPIService {
   private findDriver(data: FleetSnapshot, driverNumber: string) {
     const normalizedDriverNumber = normalizeRegistration(driverNumber);
-    let driver = data.drivers.find((item) =>
+    return data.drivers.find((item) =>
       item.numeroRegistro === normalizedDriverNumber ||
+      item.registrationNumber === normalizedDriverNumber ||
       item.id.toString() === normalizedDriverNumber ||
       item.firestoreId === normalizedDriverNumber
     );
-
-    if (!driver) {
-      driver = {
-        id: Math.max(0, ...data.drivers.map((item) => item.id)) + 1,
-        numeroRegistro: normalizedDriverNumber,
-        nome: "Motorista Mobile",
-        status: "active",
-        createdAt: new Date().toISOString(),
-      };
-      data.drivers.push(driver);
-    }
-
-    return driver;
   }
 
   async login(numeroRegistro: string): Promise<APIResponse<{ nome: string }>> {
@@ -49,7 +38,37 @@ class MobileAPIService {
       return { success: false, message: "Veiculo nao encontrado" };
     }
 
+    if (!driver) {
+      return { success: false, message: "Seu cadastro de motorista ainda nao foi liberado pelo gestor." };
+    }
+
+    if (driver.status === DRIVER_STATUSES.BLOCKED) {
+      return { success: false, message: "Seu acesso de motorista esta bloqueado. Procure o gestor da frota." };
+    }
+
+    if (driver.status === DRIVER_STATUSES.INACTIVE) {
+      return { success: false, message: "Motorista inativo. Procure o gestor da frota." };
+    }
+
+    if (driver.status === DRIVER_STATUSES.ON_ROUTE) {
+      return { success: false, message: "Motorista ja possui rota ativa." };
+    }
+
+    if (vehicle.status !== "garagem") {
+      return { success: false, message: "Veiculo indisponivel para iniciar rota." };
+    }
+
     vehicle.status = "operacao";
+    driver.status = DRIVER_STATUSES.ON_ROUTE;
+    data.routes.push({
+      id: Math.max(0, ...data.routes.map((route) => route.id)) + 1,
+      vehicleId: vehicle.id,
+      driverId: driver.id,
+      driverUserId: driver.userId,
+      status: "active",
+      startedAt: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+    });
     data.trips.push({
       id: Math.max(0, ...data.trips.map((trip) => trip.id)) + 1,
       vehicleId: vehicle.id,
@@ -73,6 +92,10 @@ class MobileAPIService {
       return { success: false, message: "Veiculo nao encontrado" };
     }
 
+    if (!driver) {
+      return { success: false, message: "Motorista nao encontrado" };
+    }
+
     const activeTrip = [...data.trips].reverse().find((trip) =>
       trip.vehicleId === vehicle.id &&
       trip.driverId === driver.id &&
@@ -83,7 +106,19 @@ class MobileAPIService {
       activeTrip.retorno = new Date().toISOString();
     }
 
+    const activeRoute = [...data.routes].reverse().find((route) =>
+      route.vehicleId === vehicle.id &&
+      route.driverId === driver.id &&
+      route.status === "active"
+    );
+
+    if (activeRoute) {
+      activeRoute.status = "finished";
+      activeRoute.finishedAt = new Date().toISOString();
+    }
+
     vehicle.status = problems.length > 0 ? "manutencao" : "garagem";
+    driver.status = DRIVER_STATUSES.ACTIVE;
 
     problems.forEach((problem) => {
       data.problems.push({
@@ -110,6 +145,10 @@ class MobileAPIService {
 
     if (!vehicle) {
       return { success: false, message: "Veiculo nao encontrado" };
+    }
+
+    if (!driver) {
+      return { success: false, message: "Motorista nao encontrado" };
     }
 
     vehicle.status = "manutencao";

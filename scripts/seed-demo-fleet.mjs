@@ -3,10 +3,13 @@ import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
 import {
   addDoc,
   collection,
+  doc,
   getDocs,
   getFirestore,
   query,
   serverTimestamp,
+  setDoc,
+  updateDoc,
   where,
 } from "firebase/firestore";
 
@@ -19,31 +22,79 @@ const firebaseConfig = {
   appId: process.env.VITE_FIREBASE_APP_ID || "1:914757900925:web:03f7943a284a6ec5b8ef14",
 };
 
-const email = process.env.SEED_ADMIN_EMAIL;
-const password = process.env.SEED_ADMIN_PASSWORD;
+const apiKey = firebaseConfig.apiKey;
+const adminEmail = process.env.SEED_ADMIN_EMAIL || "admin@sistemadefrota.com";
+const adminPassword = process.env.SEED_ADMIN_PASSWORD || "Admin@123456";
 const companyId = process.env.SEED_COMPANY_ID || "demo-company";
-
-if (!email || !password) {
-  throw new Error("Set SEED_ADMIN_EMAIL and SEED_ADMIN_PASSWORD before running this script.");
-}
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-await signInWithEmailAndPassword(auth, email, password);
+async function authRest(path, body) {
+  const response = await fetch(`https://identitytoolkit.googleapis.com/v1/${path}?key=${apiKey}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error?.message || "Firebase Auth REST error");
+  return data;
+}
+
+async function ensureAuthUser(email, password) {
+  try {
+    const created = await authRest("accounts:signUp", { email, password, returnSecureToken: true });
+    return created.localId;
+  } catch (error) {
+    if (!String(error.message).includes("EMAIL_EXISTS")) throw error;
+    const signedIn = await authRest("accounts:signInWithPassword", { email, password, returnSecureToken: true });
+    return signedIn.localId;
+  }
+}
+
+const gestorUid = await ensureAuthUser("gestor@sistemadefrota.com", "Gestor@123456");
+const motoristaUid = await ensureAuthUser("motorista@sistemadefrota.com", "Motorista@123456");
+
+await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
+
+await setDoc(doc(db, "companies", companyId), {
+  name: "Empresa Demo",
+  status: "active",
+  createdAt: serverTimestamp(),
+}, { merge: true });
+
+await setDoc(doc(db, "users", gestorUid), {
+  name: "Gestor Demo",
+  email: "gestor@sistemadefrota.com",
+  role: "gestor",
+  companyId,
+  status: "active",
+  createdAt: serverTimestamp(),
+  updatedAt: serverTimestamp(),
+}, { merge: true });
+
+await setDoc(doc(db, "users", motoristaUid), {
+  name: "Motorista Demo",
+  email: "motorista@sistemadefrota.com",
+  role: "motorista",
+  companyId,
+  status: "active",
+  createdAt: serverTimestamp(),
+  updatedAt: serverTimestamp(),
+}, { merge: true });
 
 const demoVehicles = [
-  { legacyId: 1, numeroRegistro: "05", tipo: "onibus", status: "operacao", createdAt: "2024-01-15T08:00:00Z" },
-  { legacyId: 2, numeroRegistro: "12", tipo: "micro_onibus", status: "garagem", createdAt: "2024-01-20T09:30:00Z" },
-  { legacyId: 3, numeroRegistro: "08", tipo: "articulado", status: "manutencao", createdAt: "2024-02-01T10:15:00Z" },
-  { legacyId: 4, numeroRegistro: "15", tipo: "onibus", status: "operacao", createdAt: "2024-02-10T11:00:00Z" },
+  { legacyId: 1, numeroRegistro: "05", vehicleType: "van", tipo: "van", status: "garagem", createdAt: "2024-01-15T08:00:00Z" },
+  { legacyId: 2, numeroRegistro: "12", vehicleType: "micro_onibus", tipo: "micro_onibus", status: "garagem", createdAt: "2024-01-20T09:30:00Z" },
+  { legacyId: 3, numeroRegistro: "08", vehicleType: "convencional", tipo: "convencional", status: "manutencao", createdAt: "2024-02-01T10:15:00Z" },
+  { legacyId: 4, numeroRegistro: "15", vehicleType: "eletrico", tipo: "eletrico", status: "garagem", createdAt: "2024-02-10T11:00:00Z" },
 ];
 
 const demoDrivers = [
-  { legacyId: 1, numeroRegistro: "M001", nome: "Carlos Silva", telefone: "(11) 99999-1111", createdAt: "2024-01-10T08:00:00Z" },
-  { legacyId: 2, numeroRegistro: "M002", nome: "Joao Santos", telefone: "(11) 99999-2222", createdAt: "2024-01-12T09:00:00Z" },
-  { legacyId: 3, numeroRegistro: "M003", nome: "Pedro Lima", telefone: "", createdAt: "2024-01-18T10:00:00Z" },
+  { legacyId: 1, registrationNumber: "M001", numeroRegistro: "M001", name: "Motorista Demo", nome: "Motorista Demo", phone: "(11) 99999-1111", telefone: "(11) 99999-1111", document: "000.000.000-01", userId: motoristaUid, status: "active", createdAt: "2024-01-10T08:00:00Z" },
+  { legacyId: 2, registrationNumber: "M002", numeroRegistro: "M002", name: "Joao Santos", nome: "Joao Santos", phone: "(11) 99999-2222", telefone: "(11) 99999-2222", document: "000.000.000-02", status: "inactive", createdAt: "2024-01-12T09:00:00Z" },
+  { legacyId: 3, registrationNumber: "M003", numeroRegistro: "M003", name: "Pedro Lima", nome: "Pedro Lima", document: "000.000.000-03", status: "blocked", createdAt: "2024-01-18T10:00:00Z" },
 ];
 
 const demoProblems = [
@@ -58,13 +109,20 @@ const demoRevisions = [
   { legacyId: 3, vehicleId: 3, tipo: "eletrica", dataRevisao: "2024-04-10", dataProxima: "2026-05-10", observacao: "Verificacao do sistema eletrico", responsavel: "Eletricista Mario", createdAt: "2024-04-10T14:20:00Z" },
 ];
 
-async function existsBy(collectionName, field, value) {
+async function findOne(collectionName, field, value) {
   const snapshot = await getDocs(query(collection(db, collectionName), where("companyId", "==", companyId), where(field, "==", value)));
-  return !snapshot.empty;
+  return snapshot.empty ? null : snapshot.docs[0];
 }
 
-async function addIfMissing(collectionName, existsField, payload, extra = {}) {
-  if (await existsBy(collectionName, existsField, payload[existsField])) {
+async function addOrUpdate(collectionName, existsField, payload, extra = {}) {
+  const existing = await findOne(collectionName, existsField, payload[existsField]);
+  if (existing) {
+    await updateDoc(doc(db, collectionName, existing.id), {
+      ...payload,
+      ...extra,
+      companyId,
+      updatedAt: serverTimestamp(),
+    });
     return false;
   }
 
@@ -82,17 +140,17 @@ async function addIfMissing(collectionName, existsField, payload, extra = {}) {
 let created = 0;
 
 for (const vehicle of demoVehicles) {
-  const wasCreated = await addIfMissing("vehicles", "numeroRegistro", vehicle, { plate: vehicle.numeroRegistro });
+  const wasCreated = await addOrUpdate("vehicles", "numeroRegistro", vehicle, { plate: vehicle.numeroRegistro });
   if (wasCreated) created += 1;
 }
 
 for (const driver of demoDrivers) {
-  const wasCreated = await addIfMissing("drivers", "numeroRegistro", driver, { name: driver.nome, phone: driver.telefone, status: "active" });
+  const wasCreated = await addOrUpdate("drivers", "registrationNumber", driver);
   if (wasCreated) created += 1;
 }
 
 for (const problem of demoProblems) {
-  const wasCreated = await addIfMissing("issues", "observacao", problem, {
+  const wasCreated = await addOrUpdate("issues", "observacao", problem, {
     title: problem.observacao.slice(0, 80),
     description: problem.observacao,
     priority: problem.gravidade,
@@ -101,7 +159,7 @@ for (const problem of demoProblems) {
 }
 
 for (const revision of demoRevisions) {
-  const wasCreated = await addIfMissing("maintenance", "observacao", revision, {
+  const wasCreated = await addOrUpdate("maintenance", "observacao", revision, {
     type: revision.tipo,
     description: revision.observacao,
     status: "scheduled",
@@ -111,5 +169,7 @@ for (const revision of demoRevisions) {
   if (wasCreated) created += 1;
 }
 
-console.log(`Demo fleet seed complete. Created ${created} missing records for ${companyId}.`);
+console.log(`Demo seed complete. Created ${created} missing fleet records for ${companyId}.`);
+console.log("Gestor demo: gestor@sistemadefrota.com / Gestor@123456");
+console.log("Motorista demo: motorista@sistemadefrota.com / Motorista@123456");
 process.exit(0);

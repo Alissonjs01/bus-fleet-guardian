@@ -19,7 +19,7 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return userRole() == 'admin';
+      return userRole() == 'admin' && request.auth.token.email == 'admin@sistemadefrota.com';
     }
 
     function isManager() {
@@ -54,14 +54,31 @@ service cloud.firestore {
     match /vehicles/{vehicleId} {
       allow read: if sameCompany(resource.data.companyId);
       allow create: if isManager() && sameCompany(request.resource.data.companyId);
-      allow update: if isManager() && sameCompany(resource.data.companyId) && sameCompany(request.resource.data.companyId);
+      allow update: if (
+        isManager() && sameCompany(resource.data.companyId) && sameCompany(request.resource.data.companyId)
+      ) || (
+        signedIn() &&
+        userRole() == 'motorista' &&
+        sameCompany(resource.data.companyId) &&
+        sameCompany(request.resource.data.companyId) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt'])
+      );
       allow delete: if isManager() && sameCompany(resource.data.companyId);
     }
 
     match /drivers/{driverId} {
       allow read: if sameCompany(resource.data.companyId);
       allow create: if isManager() && sameCompany(request.resource.data.companyId);
-      allow update: if isManager() && sameCompany(resource.data.companyId) && sameCompany(request.resource.data.companyId);
+      allow update: if (
+        isManager() && sameCompany(resource.data.companyId) && sameCompany(request.resource.data.companyId)
+      ) || (
+        signedIn() &&
+        userRole() == 'motorista' &&
+        resource.data.userId == request.auth.uid &&
+        sameCompany(resource.data.companyId) &&
+        sameCompany(request.resource.data.companyId) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt'])
+      );
       allow delete: if isManager() && sameCompany(resource.data.companyId);
     }
 
@@ -78,6 +95,13 @@ service cloud.firestore {
     }
 
     match /trips/{tripId} {
+      allow read: if sameCompany(resource.data.companyId);
+      allow create: if signedIn() && sameCompany(request.resource.data.companyId) && userRole() in ['admin', 'gestor', 'motorista'];
+      allow update: if signedIn() && sameCompany(resource.data.companyId) && sameCompany(request.resource.data.companyId) && userRole() in ['admin', 'gestor', 'motorista'];
+      allow delete: if isManager() && sameCompany(resource.data.companyId);
+    }
+
+    match /routes/{routeId} {
       allow read: if sameCompany(resource.data.companyId);
       allow create: if signedIn() && sameCompany(request.resource.data.companyId) && userRole() in ['admin', 'gestor', 'motorista'];
       allow update: if signedIn() && sameCompany(resource.data.companyId) && sameCompany(request.resource.data.companyId) && userRole() in ['admin', 'gestor', 'motorista'];

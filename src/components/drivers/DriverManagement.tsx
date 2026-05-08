@@ -4,8 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Driver, FleetData } from "@/types/fleet";
 import { getFleetData, normalizeRegistration, saveFleetData } from "@/utils/localStorage";
+import { DRIVER_STATUS_LABELS, DRIVER_STATUSES, normalizeDriverStatus } from "@/constants/driverStatus";
 import { Users, Plus, Edit, Trash2, Phone, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -16,7 +18,10 @@ export const DriverManagement = () => {
   const [formData, setFormData] = useState({
     numeroRegistro: "",
     nome: "",
-    telefone: ""
+    telefone: "",
+    document: "",
+    userId: "",
+    status: DRIVER_STATUSES.ACTIVE as Driver["status"],
   });
   const { toast } = useToast();
 
@@ -26,7 +31,7 @@ export const DriverManagement = () => {
   }, []);
 
   const resetForm = () => {
-    setFormData({ numeroRegistro: "", nome: "", telefone: "" });
+    setFormData({ numeroRegistro: "", nome: "", telefone: "", document: "", userId: "", status: DRIVER_STATUSES.ACTIVE });
     setIsEditing(false);
     setEditingDriver(null);
   };
@@ -70,8 +75,14 @@ export const DriverManagement = () => {
         newData.drivers[index] = {
           ...editingDriver,
           numeroRegistro,
+          registrationNumber: numeroRegistro,
           nome: formData.nome,
-          telefone: formData.telefone || undefined
+          name: formData.nome,
+          telefone: formData.telefone || undefined,
+          phone: formData.telefone || undefined,
+          document: formData.document || undefined,
+          userId: formData.userId || undefined,
+          status: normalizeDriverStatus(formData.status),
         };
       }
       toast({
@@ -83,8 +94,14 @@ export const DriverManagement = () => {
       const newDriver: Driver = {
         id: Math.max(0, ...newData.drivers.map(d => d.id)) + 1,
         numeroRegistro,
+        registrationNumber: numeroRegistro,
         nome: formData.nome,
+        name: formData.nome,
         telefone: formData.telefone || undefined,
+        phone: formData.telefone || undefined,
+        document: formData.document || undefined,
+        userId: formData.userId || undefined,
+        status: normalizeDriverStatus(formData.status),
         createdAt: new Date().toISOString()
       };
       newData.drivers.push(newDriver);
@@ -104,7 +121,10 @@ export const DriverManagement = () => {
     setFormData({
       numeroRegistro: driver.numeroRegistro,
       nome: driver.nome,
-      telefone: driver.telefone || ""
+      telefone: driver.telefone || "",
+      document: driver.document || "",
+      userId: driver.userId || "",
+      status: normalizeDriverStatus(driver.status),
     });
     setIsEditing(true);
   };
@@ -196,6 +216,40 @@ export const DriverManagement = () => {
                 />
               </div>
 
+              <div>
+                <Label htmlFor="document">Documento (opcional)</Label>
+                <Input
+                  id="document"
+                  placeholder="CPF/RG"
+                  value={formData.document}
+                  onChange={(e) => setFormData({ ...formData, document: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="userId">Firebase UID (opcional)</Label>
+                <Input
+                  id="userId"
+                  placeholder="UID do usuário autenticado"
+                  value={formData.userId}
+                  onChange={(e) => setFormData({ ...formData, userId: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="status">Status</Label>
+                <Select value={formData.status} onValueChange={(value: Driver["status"]) => setFormData({ ...formData, status: value })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.values(DRIVER_STATUSES).map((status) => (
+                      <SelectItem key={status} value={status}>{DRIVER_STATUS_LABELS[status]}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
               <div className="flex gap-2">
                 <Button type="submit" className="flex-1">
                   {isEditing ? 'Atualizar' : 'Cadastrar'}
@@ -236,6 +290,9 @@ export const DriverManagement = () => {
                         <div className="text-sm text-muted-foreground">
                           Registro: {driver.numeroRegistro}
                         </div>
+                        <Badge variant={driver.status === "blocked" ? "destructive" : driver.status === "on_route" ? "default" : "secondary"} className="text-xs mt-1">
+                          {DRIVER_STATUS_LABELS[normalizeDriverStatus(driver.status)]}
+                        </Badge>
                         {driver.telefone && (
                           <div className="flex items-center gap-1 text-sm text-muted-foreground">
                             <Phone className="h-3 w-3" />

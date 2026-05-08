@@ -7,6 +7,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { activateAccessKey, bootstrapFirstAdmin, loginWithEmail } from "@/services/authService";
 import { useAuth } from "@/contexts/AuthContext";
 import { isMobileViewport } from "@/services/deviceService";
+import { isExclusiveAdmin } from "@/config/admin";
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -33,7 +34,12 @@ const Login = () => {
       return;
     }
 
-    navigate(isMobileViewport() ? "/mobile" : "/admin", { replace: true });
+    if (isMobileViewport()) {
+      navigate("/mobile", { replace: true });
+      return;
+    }
+
+    navigate(isExclusiveAdmin(email, role) ? "/admin" : "/gestor", { replace: true });
   };
 
   const handleEmailLogin = async () => {

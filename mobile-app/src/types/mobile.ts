@@ -1,6 +1,15 @@
+import type { DriverStatus } from '@/constants/driverStatus';
+
+export type ProblemCategory = 'eletrica' | 'mecanica' | 'funilaria' | 'limpeza' | 'pneus' | 'outros';
+export type ProblemSeverity = 'baixa' | 'media' | 'alta' | 'critica';
+
 export interface MobileDriver {
   numeroRegistro: string;
   nome: string;
+  firestoreId?: string;
+  userId?: string;
+  companyId?: string;
+  status?: DriverStatus;
   isLoggedIn: boolean;
 }
 
@@ -17,14 +26,19 @@ export interface ProblemReport {
   id: string;
   vehicleNumber: string;
   driverNumber: string;
-  categoria: 'eletrica' | 'mecanica' | 'funilaria' | 'limpeza' | 'pneus' | 'outros';
-  gravidade: 'baixa' | 'media' | 'alta' | 'critica';
+  categoria: ProblemCategory;
+  gravidade: ProblemSeverity;
   observacao: string;
   reportedAt: string;
   images?: string[];
 }
 
-export interface APIResponse<T = any> {
+export type OfflineAction =
+  | { type: 'saida'; data: { vehicleNumber: string; driverNumber: string }; timestamp: string }
+  | { type: 'retorno'; data: { vehicleNumber: string; driverNumber: string; problems: ProblemReport[] }; timestamp: string }
+  | { type: 'problema'; data: ProblemReport; timestamp: string };
+
+export interface APIResponse<T = unknown> {
   success: boolean;
   data?: T;
   message?: string;

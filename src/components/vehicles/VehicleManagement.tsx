@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Vehicle, FleetData } from "@/types/fleet";
 import { getFleetData, normalizeRegistration, saveFleetData } from "@/utils/localStorage";
+import { VEHICLE_TYPES, VEHICLE_TYPE_OPTIONS, getVehicleTypeIcon, getVehicleTypeLabel, normalizeVehicleType } from "@/constants/vehicleTypes";
 import { Car, Plus, Edit, Trash2, Activity, Wrench, Home } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -16,7 +17,7 @@ export const VehicleManagement = () => {
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
   const [formData, setFormData] = useState({
     numeroRegistro: "",
-    tipo: "onibus" as Vehicle['tipo'],
+    tipo: VEHICLE_TYPES.CONVENCIONAL as Vehicle['tipo'],
     status: "garagem" as Vehicle['status']
   });
   const [typeFilter, setTypeFilter] = useState<Vehicle['tipo'] | 'todos'>('todos');
@@ -28,7 +29,7 @@ export const VehicleManagement = () => {
   }, []);
 
   const resetForm = () => {
-    setFormData({ numeroRegistro: "", tipo: "onibus", status: "garagem" });
+    setFormData({ numeroRegistro: "", tipo: VEHICLE_TYPES.CONVENCIONAL, status: "garagem" });
     setIsEditing(false);
     setEditingVehicle(null);
   };
@@ -72,7 +73,8 @@ export const VehicleManagement = () => {
         newData.vehicles[index] = {
           ...editingVehicle,
           numeroRegistro,
-          tipo: formData.tipo,
+          tipo: normalizeVehicleType(formData.tipo),
+          vehicleType: normalizeVehicleType(formData.tipo),
           status: formData.status
         };
       }
@@ -85,7 +87,8 @@ export const VehicleManagement = () => {
       const newVehicle: Vehicle = {
         id: Math.max(0, ...newData.vehicles.map(v => v.id)) + 1,
         numeroRegistro,
-        tipo: formData.tipo,
+        tipo: normalizeVehicleType(formData.tipo),
+        vehicleType: normalizeVehicleType(formData.tipo),
         status: formData.status,
         createdAt: new Date().toISOString()
       };
@@ -105,7 +108,7 @@ export const VehicleManagement = () => {
     setEditingVehicle(vehicle);
     setFormData({
       numeroRegistro: vehicle.numeroRegistro,
-      tipo: vehicle.tipo,
+      tipo: normalizeVehicleType(vehicle.vehicleType || vehicle.tipo),
       status: vehicle.status
     });
     setIsEditing(true);
@@ -140,11 +143,11 @@ export const VehicleManagement = () => {
     }
   };
 
-  const getStatusColor = (status: Vehicle['status']) => {
+  const getStatusClassName = (status: Vehicle['status']) => {
     switch (status) {
-      case 'operacao': return 'success';
-      case 'manutencao': return 'warning';
-      case 'garagem': return 'secondary';
+      case 'operacao': return 'bg-success text-success-foreground hover:bg-success/80';
+      case 'manutencao': return 'bg-warning text-warning-foreground hover:bg-warning/80';
+      case 'garagem': return '';
     }
   };
 
@@ -156,25 +159,9 @@ export const VehicleManagement = () => {
     }
   };
 
-  const getVehicleTypeIcon = (tipo: Vehicle['tipo']) => {
-    switch (tipo) {
-      case 'micro_onibus': return '🚐';
-      case 'onibus': return '🚌';
-      case 'articulado': return '🚍';
-    }
-  };
-
-  const getVehicleTypeLabel = (tipo: Vehicle['tipo']) => {
-    switch (tipo) {
-      case 'micro_onibus': return 'Micro Ônibus';
-      case 'onibus': return 'Ônibus';
-      case 'articulado': return 'Articulado';
-    }
-  };
-
   const filteredVehicles = typeFilter === 'todos' 
     ? data.vehicles 
-    : data.vehicles.filter(vehicle => vehicle.tipo === typeFilter);
+    : data.vehicles.filter(vehicle => normalizeVehicleType(vehicle.vehicleType || vehicle.tipo) === typeFilter);
 
   return (
     <div className="space-y-6">
@@ -208,17 +195,17 @@ export const VehicleManagement = () => {
 
               <div>
                 <Label htmlFor="tipo">Tipo de Veículo</Label>
-                <div className="grid grid-cols-3 gap-2 mt-2">
-                  {(['micro_onibus', 'onibus', 'articulado'] as const).map((tipo) => (
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  {VEHICLE_TYPE_OPTIONS.map((option) => (
                     <Button
-                      key={tipo}
+                      key={option.value}
                       type="button"
-                      variant={formData.tipo === tipo ? "default" : "outline"}
+                      variant={normalizeVehicleType(formData.tipo) === option.value ? "default" : "outline"}
                       className="flex flex-col items-center gap-1 h-auto py-3"
-                      onClick={() => setFormData({ ...formData, tipo })}
+                      onClick={() => setFormData({ ...formData, tipo: option.value })}
                     >
-                      <span className="text-lg">{getVehicleTypeIcon(tipo)}</span>
-                      <span className="text-xs">{getVehicleTypeLabel(tipo)}</span>
+                      <span className="text-lg">{option.icon}</span>
+                      <span className="text-xs">{option.label}</span>
                     </Button>
                   ))}
                 </div>
@@ -268,9 +255,9 @@ export const VehicleManagement = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="todos">Todos os tipos</SelectItem>
-                  <SelectItem value="micro_onibus">🚐 Micro Ônibus</SelectItem>
-                  <SelectItem value="onibus">🚌 Ônibus</SelectItem>
-                  <SelectItem value="articulado">🚍 Articulado</SelectItem>
+                  {VEHICLE_TYPE_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>{option.icon} {option.label}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </CardTitle>
@@ -285,17 +272,17 @@ export const VehicleManagement = () => {
                 return (
                   <div key={vehicle.id} className="flex items-center justify-between p-4 border rounded-lg">
                     <div className="flex items-center gap-3">
-                      <span className="text-lg">{getVehicleTypeIcon(vehicle.tipo)}</span>
+                      <span className="text-lg">{getVehicleTypeIcon(vehicle.vehicleType || vehicle.tipo)}</span>
                       {getStatusIcon(vehicle.status)}
                       <div>
                         <div className="font-medium flex items-center gap-2">
                           Veículo {vehicle.numeroRegistro}
                           <span className="text-sm text-muted-foreground">
-                            ({getVehicleTypeLabel(vehicle.tipo)})
+                            ({getVehicleTypeLabel(vehicle.vehicleType || vehicle.tipo)})
                           </span>
                         </div>
                         <div className="flex items-center gap-2 mt-1">
-                          <Badge variant={getStatusColor(vehicle.status) as any}>
+                          <Badge variant={vehicle.status === 'garagem' ? 'secondary' : 'default'} className={getStatusClassName(vehicle.status)}>
                             {getStatusLabel(vehicle.status)}
                           </Badge>
                           {problems > 0 && (

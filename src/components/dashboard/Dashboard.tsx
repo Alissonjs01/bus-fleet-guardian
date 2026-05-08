@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatsCard } from "./StatsCard";
 import { getFleetData } from "@/utils/localStorage";
 import { DashboardStats, FleetData } from "@/types/fleet";
+import { VEHICLE_TYPE_OPTIONS, normalizeVehicleType } from "@/constants/vehicleTypes";
 import { 
   Car, 
   Users, 
@@ -39,6 +40,10 @@ export const Dashboard = () => {
         return nextDate >= today && nextDate <= nextWeek;
       }).length,
       openProblems: fleetData.problems.filter(p => p.status === 'aberto').length,
+      byVehicleType: VEHICLE_TYPE_OPTIONS.reduce((acc, option) => {
+        acc[option.value] = fleetData.vehicles.filter(v => normalizeVehicleType(v.vehicleType || v.tipo) === option.value).length;
+        return acc;
+      }, {} as DashboardStats["byVehicleType"]),
     };
 
     setStats(dashboardStats);
@@ -78,6 +83,22 @@ export const Dashboard = () => {
       </div>
 
       {/* Cards de Estatísticas */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {VEHICLE_TYPE_OPTIONS.map((option) => (
+          <Card key={option.value}>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">{option.pluralLabel}</p>
+                  <p className="text-2xl font-bold">{stats.byVehicleType[option.value] || 0}</p>
+                </div>
+                <span className="text-2xl">{option.icon}</span>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatsCard
           title="Total de Veículos"

@@ -20,7 +20,9 @@ const Index = () => {
     data.problems.length,
     data.revisions.length,
     data.trips.length,
+    data.routes.length,
     data.vehicles.map((vehicle) => `${vehicle.id}:${vehicle.status}`).join("|"),
+    data.drivers.map((driver) => `${driver.id}:${driver.status}`).join("|"),
   ].join("-");
 
   const renderContent = () => {

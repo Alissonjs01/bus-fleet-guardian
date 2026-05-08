@@ -1,4 +1,4 @@
-import { MobileDriver, TripSession, ProblemReport } from '../types/mobile';
+import { MobileDriver, TripSession, ProblemReport, OfflineAction } from '../types/mobile';
 
 const MOBILE_STORAGE_KEYS = {
   DRIVER: 'mobile_current_driver',
@@ -59,13 +59,13 @@ export const mobileStorage = {
   },
 
   // Offline queue for API calls
-  addToOfflineQueue: (action: any) => {
+  addToOfflineQueue: (action: OfflineAction) => {
     const queue = mobileStorage.getOfflineQueue();
     queue.push(action);
     localStorage.setItem(MOBILE_STORAGE_KEYS.OFFLINE_QUEUE, JSON.stringify(queue));
   },
 
-  getOfflineQueue: (): any[] => {
+  getOfflineQueue: (): OfflineAction[] => {
     const stored = localStorage.getItem(MOBILE_STORAGE_KEYS.OFFLINE_QUEUE);
     return stored ? JSON.parse(stored) : [];
   },

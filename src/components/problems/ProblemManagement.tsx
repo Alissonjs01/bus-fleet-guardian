@@ -46,14 +46,18 @@ export const ProblemManagement = () => {
     }
   };
 
-  const getGravidadeColor = (gravidade: Problem['gravidade']) => {
+  const getGravidadeVariant = (gravidade: Problem['gravidade']) => {
     switch (gravidade) {
       case 'baixa': return 'secondary';
-      case 'media': return 'warning';
       case 'alta': return 'destructive';
       case 'critica': return 'destructive';
+      case 'media': return 'default';
     }
   };
+
+  const getGravidadeClassName = (gravidade: Problem['gravidade']) => gravidade === 'media'
+    ? 'bg-warning text-warning-foreground hover:bg-warning/80'
+    : '';
 
   const getCategoriaIcon = (categoria: Problem['categoria']) => {
     return <AlertTriangle className="h-4 w-4" />;
@@ -185,7 +189,7 @@ export const ProblemManagement = () => {
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
                         {getCategoriaIcon(problem.categoria)}
-                        <Badge variant={getGravidadeColor(problem.gravidade) as any}>
+                        <Badge variant={getGravidadeVariant(problem.gravidade)} className={getGravidadeClassName(problem.gravidade)}>
                           {problem.gravidade.toUpperCase()}
                         </Badge>
                         <Badge variant="outline">

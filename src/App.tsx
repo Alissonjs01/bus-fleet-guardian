@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
@@ -12,8 +12,10 @@ import LicenseList from "./admin/pages/LicenseList";
 import ActivityLogs from "./admin/pages/ActivityLogs";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AuthGuard } from "@/components/auth/AuthGuard";
-import { RoleGuard } from "@/components/auth/RoleGuard";
 import { DeviceRedirect } from "@/components/auth/DeviceRedirect";
+import { AdminRoute } from "@/components/auth/AdminRoute";
+import { ManagerRoute } from "@/components/auth/ManagerRoute";
+import { MobileRoute } from "@/components/auth/MobileRoute";
 import { MobileApp } from "../mobile-app/src/MobileApp";
 
 const queryClient = new QueryClient();
@@ -34,9 +36,9 @@ const App = () => (
               path="/admin"
               element={
                 <AuthGuard>
-                  <RoleGuard roles={["admin", "gestor"]}>
+                  <AdminRoute>
                     <AdminDashboard />
-                  </RoleGuard>
+                  </AdminRoute>
                 </AuthGuard>
               }
             />
@@ -44,9 +46,9 @@ const App = () => (
               path="/admin/licenses"
               element={
                 <AuthGuard>
-                  <RoleGuard roles={["admin", "gestor"]}>
+                  <AdminRoute>
                     <LicenseList />
-                  </RoleGuard>
+                  </AdminRoute>
                 </AuthGuard>
               }
             />
@@ -54,27 +56,30 @@ const App = () => (
               path="/admin/logs"
               element={
                 <AuthGuard>
-                  <RoleGuard roles={["admin", "gestor"]}>
+                  <AdminRoute>
                     <ActivityLogs />
-                  </RoleGuard>
+                  </AdminRoute>
                 </AuthGuard>
               }
             />
             <Route
-              path="/desktop"
+              path="/gestor"
               element={
                 <AuthGuard>
-                  <RoleGuard roles={["admin", "gestor"]}>
+                  <ManagerRoute>
                     <Index />
-                  </RoleGuard>
+                  </ManagerRoute>
                 </AuthGuard>
               }
             />
+            <Route path="/desktop" element={<Navigate to="/gestor" replace />} />
             <Route
               path="/mobile"
               element={
                 <AuthGuard>
-                  <MobileApp />
+                  <MobileRoute>
+                    <MobileApp />
+                  </MobileRoute>
                 </AuthGuard>
               }
             />

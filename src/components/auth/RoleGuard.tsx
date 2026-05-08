@@ -9,7 +9,7 @@ export function RoleGuard({ children, roles }: { children: ReactNode; roles: Use
   if (!user) return <Navigate to="/login" replace />;
 
   if (!roles.includes(user.role)) {
-    return <Navigate to={user.role === "motorista" ? "/mobile" : "/admin"} replace />;
+    return <Navigate to={user.role === "motorista" ? "/mobile" : "/gestor"} replace />;
   }
 
   return <>{children}</>;

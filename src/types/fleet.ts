@@ -1,9 +1,13 @@
+import type { DriverStatus } from "@/constants/driverStatus";
+import type { VehicleType } from "@/constants/vehicleTypes";
+
 export interface Vehicle {
   id: number;
   firestoreId?: string;
   companyId?: string;
   numeroRegistro: string;
-  tipo: 'micro_onibus' | 'onibus' | 'articulado';
+  tipo: VehicleType;
+  vehicleType: VehicleType;
   status: 'operacao' | 'garagem' | 'manutencao';
   createdAt: string;
   updatedAt?: string;
@@ -14,11 +18,17 @@ export interface Driver {
   firestoreId?: string;
   companyId?: string;
   numeroRegistro: string;
+  registrationNumber: string;
   nome: string;
+  name: string;
   telefone?: string;
-  status?: 'active' | 'blocked' | 'inactive';
+  phone?: string;
+  document?: string;
+  userId?: string;
+  status?: DriverStatus;
   createdAt: string;
   updatedAt?: string;
+  createdBy?: string;
 }
 
 export interface Problem {
@@ -62,12 +72,26 @@ export interface Trip {
   createdAt: string;
 }
 
+export interface Route {
+  id: number;
+  firestoreId?: string;
+  companyId?: string;
+  driverId: number;
+  driverUserId?: string;
+  vehicleId: number;
+  status: 'active' | 'finished' | 'canceled';
+  startedAt: string;
+  finishedAt?: string;
+  createdAt: string;
+}
+
 export interface FleetData {
   vehicles: Vehicle[];
   drivers: Driver[];
   problems: Problem[];
   revisions: Revision[];
   trips: Trip[];
+  routes: Route[];
 }
 
 export interface DashboardStats {
@@ -78,4 +102,5 @@ export interface DashboardStats {
   overdueRevisions: number;
   upcomingRevisions: number;
   openProblems: number;
+  byVehicleType: Record<VehicleType, number>;
 }
