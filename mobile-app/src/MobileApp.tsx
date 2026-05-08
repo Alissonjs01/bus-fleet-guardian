@@ -1,134 +1,74 @@
-import { useState, useEffect } from 'react';
-import { mobileStorage } from './utils/storage';
-import { MobileLogin } from './pages/MobileLogin';
-import { MobileDashboard } from './pages/MobileDashboard';
-import { TripStart } from './pages/TripStart';
-import { TripEnd } from './pages/TripEnd';
-import { ProblemReport } from './pages/ProblemReport';
-import { History } from './pages/History';
+import { useEffect, useState } from "react";
+import { mobileStorage } from "./utils/storage";
+import { MobileDashboard } from "./pages/MobileDashboard";
+import { TripStart } from "./pages/TripStart";
+import { TripEnd } from "./pages/TripEnd";
+import { ProblemReport } from "./pages/ProblemReport";
+import { History } from "./pages/History";
+import { useAuth } from "@/contexts/AuthContext";
+import { logout } from "@/services/authService";
 
-type MobileView = 
-  | 'login' 
-  | 'dashboard' 
-  | 'trip-start' 
-  | 'trip-end' 
-  | 'problem-report' 
-  | 'history';
+type MobileView = "dashboard" | "trip-start" | "trip-end" | "problem-report" | "history";
 
 export const MobileApp = () => {
-  const [currentView, setCurrentView] = useState<MobileView>('login');
+  const [currentView, setCurrentView] = useState<MobileView>("dashboard");
+  const { user } = useAuth();
 
   useEffect(() => {
-    // Verificar se o usuário já está logado
-    if (mobileStorage.isLoggedIn()) {
-      setCurrentView('dashboard');
-    }
-  }, []);
-
-  const handleLoginSuccess = () => {
-    setCurrentView('dashboard');
-  };
+    if (!user) return;
+    mobileStorage.setCurrentDriver({
+      numeroRegistro: user.id,
+      nome: user.name,
+      isLoggedIn: true,
+    });
+  }, [user]);
 
   const handleLogout = () => {
     mobileStorage.clearCurrentDriver();
     mobileStorage.clearCurrentTrip();
     mobileStorage.clearPendingProblems();
-    setCurrentView('login');
-  };
-
-  const handleStartTrip = () => {
-    setCurrentView('trip-start');
-  };
-
-  const handleTripStarted = () => {
-    setCurrentView('dashboard');
-  };
-
-  const handleEndTrip = () => {
-    setCurrentView('trip-end');
-  };
-
-  const handleTripEnded = () => {
-    setCurrentView('dashboard');
-  };
-
-  const handleReportProblem = () => {
-    setCurrentView('problem-report');
+    void logout();
   };
 
   const handleProblemReported = () => {
-    // Voltar para a tela anterior (trip-end ou dashboard)
     const hasActiveTrip = mobileStorage.hasActiveTrip();
-    setCurrentView(hasActiveTrip ? 'trip-end' : 'dashboard');
-  };
-
-  const handleViewHistory = () => {
-    setCurrentView('history');
-  };
-
-  const handleBackToDashboard = () => {
-    setCurrentView('dashboard');
+    setCurrentView(hasActiveTrip ? "trip-end" : "dashboard");
   };
 
   const renderCurrentView = () => {
     switch (currentView) {
-      case 'login':
-        return <MobileLogin onLoginSuccess={handleLoginSuccess} />;
-      
-      case 'dashboard':
+      case "dashboard":
         return (
-          <MobileDashboard 
-            onStartTrip={handleStartTrip}
-            onEndTrip={handleEndTrip}
-            onViewHistory={handleViewHistory}
+          <MobileDashboard
+            onStartTrip={() => setCurrentView("trip-start")}
+            onEndTrip={() => setCurrentView("trip-end")}
+            onViewHistory={() => setCurrentView("history")}
             onLogout={handleLogout}
           />
         );
-      
-      case 'trip-start':
+      case "trip-start":
+        return <TripStart onTripStarted={() => setCurrentView("dashboard")} onBack={() => setCurrentView("dashboard")} />;
+      case "trip-end":
         return (
-          <TripStart 
-            onTripStarted={handleTripStarted}
-            onBack={handleBackToDashboard}
+          <TripEnd
+            onTripEnded={() => setCurrentView("dashboard")}
+            onReportProblem={() => setCurrentView("problem-report")}
+            onBack={() => setCurrentView("dashboard")}
           />
         );
-      
-      case 'trip-end':
+      case "problem-report":
         return (
-          <TripEnd 
-            onTripEnded={handleTripEnded}
-            onReportProblem={handleReportProblem}
-            onBack={handleBackToDashboard}
-          />
-        );
-      
-      case 'problem-report':
-        return (
-          <ProblemReport 
+          <ProblemReport
             onProblemReported={handleProblemReported}
-            onBack={() => {
-              // Voltar para a tela anterior baseado no contexto
-              const hasActiveTrip = mobileStorage.hasActiveTrip();
-              setCurrentView(hasActiveTrip ? 'trip-end' : 'dashboard');
-            }}
+            onBack={() => setCurrentView(mobileStorage.hasActiveTrip() ? "trip-end" : "dashboard")}
           />
         );
-      
-      case 'history':
-        return (
-          <History 
-            onBack={handleBackToDashboard}
-          />
-        );
-      
+      case "history":
+        return <History onBack={() => setCurrentView("dashboard")} />;
       default:
-        return <MobileLogin onLoginSuccess={handleLoginSuccess} />;
+        return null;
     }
   };
 
-  return (
-    <div className="mobile-app">
-      {renderCurrentView()}
-    </div>
-  );
+  return <div className="mobile-app">{renderCurrentView()}</div>;
 };

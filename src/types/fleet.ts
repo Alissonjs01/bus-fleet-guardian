@@ -1,21 +1,30 @@
 export interface Vehicle {
   id: number;
+  firestoreId?: string;
+  companyId?: string;
   numeroRegistro: string;
   tipo: 'micro_onibus' | 'onibus' | 'articulado';
   status: 'operacao' | 'garagem' | 'manutencao';
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface Driver {
   id: number;
+  firestoreId?: string;
+  companyId?: string;
   numeroRegistro: string;
   nome: string;
   telefone?: string;
+  status?: 'active' | 'blocked' | 'inactive';
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface Problem {
   id: number;
+  firestoreId?: string;
+  companyId?: string;
   vehicleId: number;
   driverId: number;
   categoria: 'eletrica' | 'mecanica' | 'funilaria' | 'limpeza' | 'pneus' | 'outros';
@@ -23,11 +32,14 @@ export interface Problem {
   observacao: string;
   status: 'aberto' | 'resolvido';
   createdAt: string;
+  updatedAt?: string;
   resolvedAt?: string;
 }
 
 export interface Revision {
   id: number;
+  firestoreId?: string;
+  companyId?: string;
   vehicleId: number;
   tipo: 'eletrica' | 'mecanica' | 'funilaria' | 'geral';
   dataRevisao: string;
@@ -35,10 +47,13 @@ export interface Revision {
   observacao?: string;
   responsavel?: string;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface Trip {
   id: number;
+  firestoreId?: string;
+  companyId?: string;
   vehicleId: number;
   driverId: number;
   saida: string;

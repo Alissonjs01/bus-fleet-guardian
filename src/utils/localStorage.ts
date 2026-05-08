@@ -1,6 +1,6 @@
 import { FleetData } from '@/types/fleet';
 
-const STORAGE_KEY = 'fleet-management-data';
+const STORAGE_KEY = 'fleet-management-cache';
 
 // TODO: Migrar para servidor Node.js + dados.json quando implementar Electron
 export const getFleetData = (): FleetData => {
@@ -19,8 +19,17 @@ export const getFleetData = (): FleetData => {
 export const saveFleetData = (data: FleetData): void => {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    window.dispatchEvent(new CustomEvent('fleet-cache-updated', { detail: data }));
   } catch (error) {
     console.error('Erro ao salvar dados:', error);
+  }
+};
+
+export const saveFleetCache = (data: FleetData): void => {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch (error) {
+    console.error('Erro ao salvar cache:', error);
   }
 };
 
@@ -58,7 +67,7 @@ export const restoreBackup = (backupKey: string): boolean => {
   }
 };
 
-const getInitialData = (): FleetData => ({
+export const getInitialFleetData = (): FleetData => ({
   vehicles: [
     { id: 1, numeroRegistro: "05", tipo: "onibus", status: "operacao", createdAt: "2024-01-15T08:00:00Z" },
     { id: 2, numeroRegistro: "12", tipo: "micro_onibus", status: "garagem", createdAt: "2024-01-20T09:30:00Z" },
@@ -137,3 +146,5 @@ const getInitialData = (): FleetData => ({
   ],
   trips: []
 });
+
+const getInitialData = getInitialFleetData;

@@ -16,9 +16,9 @@ interface AdminLayoutProps {
 }
 
 const menuItems = [
-  { path: '/admin-panel-secure/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/admin-panel-secure/licenses', label: 'Licenças', icon: Key },
-  { path: '/admin-panel-secure/logs', label: 'Logs', icon: ScrollText },
+  { path: '/admin', label: 'Dashboard', icon: LayoutDashboard },
+  { path: '/admin/licenses', label: 'Licenças', icon: Key },
+  { path: '/admin/logs', label: 'Logs', icon: ScrollText },
 ];
 
 export function AdminLayout({ children }: AdminLayoutProps) {

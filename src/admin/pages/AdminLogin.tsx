@@ -24,7 +24,7 @@ const AdminLogin = () => {
   }
 
   if (isAuthenticated) {
-    navigate('/admin-panel-secure/dashboard');
+    navigate('/admin');
     return null;
   }
 
@@ -42,7 +42,7 @@ const AdminLogin = () => {
     const result = await login(email, password);
 
     if (result.success) {
-      navigate('/admin-panel-secure/dashboard');
+      navigate('/admin');
     } else {
       setError(result.error || 'Credenciais inválidas');
       setIsLoading(false);

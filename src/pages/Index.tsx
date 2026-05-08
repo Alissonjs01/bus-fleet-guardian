@@ -7,26 +7,29 @@ import { ProblemManagement } from "@/components/problems/ProblemManagement";
 import { Revisions } from "@/components/revisions/Revisions";
 import { Reports } from "@/components/reports/Reports";
 import { Backup } from "@/components/backup/Backup";
+import { useFleetData } from "@/hooks/useFleetData";
+import { SyncStatusBadge } from "@/components/sync/SyncStatusBadge";
 
 const Index = () => {
-  const [activeView, setActiveView] = useState('dashboard');
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true); // Recolhido por padrão
+  const [activeView, setActiveView] = useState("dashboard");
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
+  const { syncStatus } = useFleetData();
 
   const renderContent = () => {
     switch (activeView) {
-      case 'dashboard':
+      case "dashboard":
         return <Dashboard />;
-      case 'vehicles':
+      case "vehicles":
         return <VehicleManagement />;
-      case 'drivers':
+      case "drivers":
         return <DriverManagement />;
-      case 'problems':
+      case "problems":
         return <ProblemManagement />;
-      case 'revisions':
+      case "revisions":
         return <Revisions />;
-      case 'reports':
+      case "reports":
         return <Reports />;
-      case 'backup':
+      case "backup":
         return <Backup />;
       default:
         return <Dashboard />;
@@ -35,13 +38,16 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background flex">
-      <Sidebar 
-        activeView={activeView} 
+      <Sidebar
+        activeView={activeView}
         onViewChange={setActiveView}
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
       />
       <div className="flex-1 p-6 overflow-auto">
+        <div className="flex justify-end mb-2">
+          <SyncStatusBadge status={syncStatus} />
+        </div>
         {renderContent()}
       </div>
     </div>

@@ -1,0 +1,94 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function userRole() {
+      return signedIn() ? userDoc().data.role : null;
+    }
+
+    function userCompany() {
+      return signedIn() ? userDoc().data.companyId : null;
+    }
+
+    function isAdmin() {
+      return userRole() == 'admin';
+    }
+
+    function isManager() {
+      return userRole() in ['admin', 'gestor'];
+    }
+
+    function sameCompany(companyId) {
+      return signedIn() && (isAdmin() || userCompany() == companyId);
+    }
+
+    match /users/{userId} {
+      allow read: if signedIn() && (request.auth.uid == userId || isManager());
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /companies/{companyId} {
+      allow read: if sameCompany(companyId);
+      allow write: if isAdmin();
+    }
+
+    match /licenseKeys/{keyId} {
+      allow read: if isManager();
+      allow create, update, delete: if false;
+
+      match /activations/{activationId} {
+        allow read: if isManager();
+        allow write: if false;
+      }
+    }
+
+    match /vehicles/{vehicleId} {
+      allow read: if sameCompany(resource.data.companyId);
+      allow create: if isManager() && sameCompany(request.resource.data.companyId);
+      allow update: if isManager() && sameCompany(resource.data.companyId) && sameCompany(request.resource.data.companyId);
+      allow delete: if isManager() && sameCompany(resource.data.companyId);
+    }
+
+    match /drivers/{driverId} {
+      allow read: if sameCompany(resource.data.companyId);
+      allow create: if isManager() && sameCompany(request.resource.data.companyId);
+      allow update: if isManager() && sameCompany(resource.data.companyId) && sameCompany(request.resource.data.companyId);
+      allow delete: if isManager() && sameCompany(resource.data.companyId);
+    }
+
+    match /issues/{issueId} {
+      allow read: if sameCompany(resource.data.companyId);
+      allow create: if signedIn() && sameCompany(request.resource.data.companyId) && userRole() in ['admin', 'gestor', 'motorista'];
+      allow update: if signedIn() && sameCompany(resource.data.companyId) && userRole() in ['admin', 'gestor', 'motorista'];
+      allow delete: if isManager() && sameCompany(resource.data.companyId);
+    }
+
+    match /maintenance/{maintenanceId} {
+      allow read: if sameCompany(resource.data.companyId);
+      allow create, update, delete: if isManager() && sameCompany(request.resource.data.companyId);
+    }
+
+    match /accessLogs/{logId} {
+      allow read: if isManager() && sameCompany(resource.data.companyId);
+      allow write: if false;
+    }
+
+    match /syncQueue/{syncId} {
+      allow read, create: if signedIn() && request.auth.uid == request.resource.data.userId && sameCompany(request.resource.data.companyId);
+      allow update: if signedIn() && request.auth.uid == resource.data.userId && sameCompany(resource.data.companyId);
+      allow delete: if isManager() && sameCompany(resource.data.companyId);
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

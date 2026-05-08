@@ -2,13 +2,19 @@
 
 export interface License {
   id: string;
-  key: string;
+  key?: string;
+  displayCode?: string;
+  companyId?: string;
+  companyName?: string;
+  role?: 'admin' | 'gestor' | 'motorista';
   status: 'active' | 'expired' | 'blocked' | 'pending';
-  plan: 'monthly';
+  plan?: 'monthly';
   expires_at: string;
   max_activations: number;
+  activationsCount?: number;
   created_at: string;
   updated_at: string;
+  createdBy?: string;
 }
 
 export interface Activation {
@@ -46,9 +52,12 @@ export interface AdminUser {
 export interface ActivityLog {
   id: string;
   license_id: string | null;
+  userId?: string;
+  companyId?: string;
   action: string;
   details: Record<string, unknown> | null;
   ip_address: string | null;
+  userAgent?: string | null;
   created_at: string;
 }
 

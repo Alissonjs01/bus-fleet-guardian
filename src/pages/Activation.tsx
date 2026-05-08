@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Key, Loader2, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { activateLicense } from "@/services/licenseService";
+import { activateAccessKey } from "@/services/authService";
 
 type ActivationState = 'idle' | 'loading' | 'success' | 'error' | 'blocked';
 
@@ -29,7 +29,7 @@ const Activation = () => {
     setState('loading');
     setError(null);
 
-    const result = await activateLicense(licenseKey);
+    const result = await activateAccessKey(licenseKey);
 
     if (result.success) {
       setState('success');
