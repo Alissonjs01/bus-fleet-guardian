@@ -119,6 +119,68 @@ function withCompany<T extends Record<string, unknown>>(companyId: string, data:
   };
 }
 
+function withoutUndefined<T extends Record<string, unknown>>(data: T) {
+  return Object.fromEntries(Object.entries(data).filter(([, value]) => value !== undefined));
+}
+
+function recordKey(record: Vehicle | Driver | Problem | Revision | Trip) {
+  return record.firestoreId || String(record.id);
+}
+
+function hasChanged(previous: Vehicle | Driver | Problem | Revision | Trip | undefined, next: Vehicle | Driver | Problem | Revision | Trip) {
+  if (!previous) return true;
+  return JSON.stringify(previous) !== JSON.stringify(next);
+}
+
+function serializeRecord(companyId: string, collectionName: FleetCollectionName, record: Vehicle | Driver | Problem | Revision | Trip) {
+  const base = withoutUndefined({
+    ...record,
+    legacyId: record.id,
+    companyId,
+    updatedAt: serverTimestamp(),
+    createdAt: record.createdAt || new Date().toISOString(),
+  });
+
+  if (collectionName === "vehicles") {
+    const vehicle = record as Vehicle;
+    return withoutUndefined({ ...base, plate: vehicle.numeroRegistro });
+  }
+
+  if (collectionName === "drivers") {
+    const driver = record as Driver;
+    return withoutUndefined({ ...base, name: driver.nome, phone: driver.telefone || "", status: driver.status || "active" });
+  }
+
+  if (collectionName === "issues") {
+    const problem = record as Problem;
+    return withoutUndefined({
+      ...base,
+      title: problem.observacao.slice(0, 80),
+      description: problem.observacao,
+      priority: problem.gravidade,
+    });
+  }
+
+  if (collectionName === "maintenance") {
+    const revision = record as Revision;
+    return withoutUndefined({
+      ...base,
+      type: revision.tipo,
+      description: revision.observacao || "",
+      status: "scheduled",
+      scheduledAt: revision.dataProxima,
+      completedAt: revision.dataRevisao,
+    });
+  }
+
+  const trip = record as Trip;
+  return withoutUndefined({
+    ...base,
+    startTime: trip.saida,
+    endTime: trip.retorno || null,
+  });
+}
+
 export function subscribeFleetData(
   companyId: string,
   callback: (data: FleetData, pendingWrites: boolean) => void,
@@ -365,17 +427,47 @@ export async function replaceCompanyFleetData(companyId: string, fleetData: Flee
       const ref = record.firestoreId ? doc(db, collectionName, record.firestoreId) : doc(collection(db, collectionName));
       batch.set(
         ref,
-        {
-          ...record,
-          legacyId: record.id,
-          companyId,
-          updatedAt: serverTimestamp(),
-          createdAt: record.createdAt || new Date().toISOString(),
-        },
+        serializeRecord(companyId, collectionName, record),
         { merge: true },
       );
     });
   });
 
   await batch.commit();
+}
+
+export async function syncCompanyFleetChanges(companyId: string, previousData: FleetData, nextData: FleetData) {
+  const batch = writeBatch(db);
+  let operations = 0;
+  const targets: Array<[keyof FleetData, FleetCollectionName, Array<Vehicle | Driver | Problem | Revision | Trip>, Array<Vehicle | Driver | Problem | Revision | Trip>]> = [
+    ["vehicles", "vehicles", previousData.vehicles, nextData.vehicles],
+    ["drivers", "drivers", previousData.drivers, nextData.drivers],
+    ["problems", "issues", previousData.problems, nextData.problems],
+    ["revisions", "maintenance", previousData.revisions, nextData.revisions],
+    ["trips", "trips", previousData.trips, nextData.trips],
+  ];
+
+  targets.forEach(([, collectionName, previousRecords, nextRecords]) => {
+    const previousByKey = new Map(previousRecords.map((record) => [recordKey(record), record]));
+    const nextByKey = new Map(nextRecords.map((record) => [recordKey(record), record]));
+
+    nextRecords.forEach((record) => {
+      const previous = previousByKey.get(recordKey(record));
+      if (!hasChanged(previous, record)) return;
+
+      const ref = record.firestoreId ? doc(db, collectionName, record.firestoreId) : doc(collection(db, collectionName));
+      batch.set(ref, serializeRecord(companyId, collectionName, record), { merge: true });
+      operations += 1;
+    });
+
+    previousRecords.forEach((record) => {
+      if (!record.firestoreId || nextByKey.has(recordKey(record))) return;
+      batch.delete(doc(db, collectionName, record.firestoreId));
+      operations += 1;
+    });
+  });
+
+  if (operations > 0) {
+    await batch.commit();
+  }
 }

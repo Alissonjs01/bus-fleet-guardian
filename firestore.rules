@@ -77,6 +77,13 @@ service cloud.firestore {
       allow create, update, delete: if isManager() && sameCompany(request.resource.data.companyId);
     }
 
+    match /trips/{tripId} {
+      allow read: if sameCompany(resource.data.companyId);
+      allow create: if signedIn() && sameCompany(request.resource.data.companyId) && userRole() in ['admin', 'gestor', 'motorista'];
+      allow update: if signedIn() && sameCompany(resource.data.companyId) && sameCompany(request.resource.data.companyId) && userRole() in ['admin', 'gestor', 'motorista'];
+      allow delete: if isManager() && sameCompany(resource.data.companyId);
+    }
+
     match /accessLogs/{logId} {
       allow read: if isManager() && sameCompany(resource.data.companyId);
       allow write: if false;

@@ -9,7 +9,7 @@ import { MobileLayout } from '../components/MobileLayout';
 import { mobileStorage } from '../utils/storage';
 import { mobileAPI } from '../services/api';
 import { TripSession } from '../types/mobile';
-import { getFleetData } from '@/utils/localStorage';
+import { getFleetData, normalizeRegistration } from '@/utils/localStorage';
 
 interface TripStartProps {
   onTripStarted: () => void;
@@ -27,7 +27,9 @@ export const TripStart = ({ onTripStarted, onBack }: TripStartProps) => {
   const handleStartTrip = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!vehicleNumber.trim()) {
+    const normalizedVehicleNumber = normalizeRegistration(vehicleNumber);
+
+    if (!normalizedVehicleNumber) {
       setError('Digite o número do veículo');
       return;
     }
@@ -42,7 +44,7 @@ export const TripStart = ({ onTripStarted, onBack }: TripStartProps) => {
 
     try {
       const response = await mobileAPI.registrarSaida(
-        vehicleNumber.trim(),
+        normalizedVehicleNumber,
         driver.numeroRegistro
       );
       
@@ -50,7 +52,7 @@ export const TripStart = ({ onTripStarted, onBack }: TripStartProps) => {
         // Criar sessão da viagem
         const tripSession: TripSession = {
           id: `trip_${Date.now()}`,
-          vehicleNumber: vehicleNumber.trim(),
+          vehicleNumber: normalizedVehicleNumber,
           driverNumber: driver.numeroRegistro,
           startTime: new Date().toISOString(),
           isActive: true,
@@ -67,7 +69,7 @@ export const TripStart = ({ onTripStarted, onBack }: TripStartProps) => {
       // Salvar offline
       const tripSession: TripSession = {
         id: `trip_${Date.now()}`,
-        vehicleNumber: vehicleNumber.trim(),
+        vehicleNumber: normalizedVehicleNumber,
         driverNumber: driver.numeroRegistro,
         startTime: new Date().toISOString(),
         isActive: true,
@@ -76,7 +78,7 @@ export const TripStart = ({ onTripStarted, onBack }: TripStartProps) => {
       mobileStorage.setCurrentTrip(tripSession);
       mobileStorage.addToOfflineQueue({
         type: 'saida',
-        data: { vehicleNumber: vehicleNumber.trim(), driverNumber: driver.numeroRegistro },
+        data: { vehicleNumber: normalizedVehicleNumber, driverNumber: driver.numeroRegistro },
         timestamp: new Date().toISOString(),
       });
       

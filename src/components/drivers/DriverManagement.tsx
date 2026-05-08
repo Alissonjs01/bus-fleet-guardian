@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Driver, FleetData } from "@/types/fleet";
-import { getFleetData, saveFleetData } from "@/utils/localStorage";
+import { getFleetData, normalizeRegistration, saveFleetData } from "@/utils/localStorage";
 import { Users, Plus, Edit, Trash2, Phone, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -35,7 +35,9 @@ export const DriverManagement = () => {
     e.preventDefault();
     if (!data) return;
 
-    if (!formData.numeroRegistro.trim() || !formData.nome.trim()) {
+    const numeroRegistro = normalizeRegistration(formData.numeroRegistro);
+
+    if (!numeroRegistro || !formData.nome.trim()) {
       toast({
         title: "Erro",
         description: "Número de registro e nome são obrigatórios",
@@ -46,7 +48,7 @@ export const DriverManagement = () => {
 
     // Verificar se já existe um motorista com este número
     const existingDriver = data.drivers.find(d => 
-      d.numeroRegistro === formData.numeroRegistro && 
+      d.numeroRegistro === numeroRegistro && 
       (!editingDriver || d.id !== editingDriver.id)
     );
 
@@ -67,7 +69,7 @@ export const DriverManagement = () => {
       if (index !== -1) {
         newData.drivers[index] = {
           ...editingDriver,
-          numeroRegistro: formData.numeroRegistro,
+          numeroRegistro,
           nome: formData.nome,
           telefone: formData.telefone || undefined
         };
@@ -80,7 +82,7 @@ export const DriverManagement = () => {
       // Criar novo motorista
       const newDriver: Driver = {
         id: Math.max(0, ...newData.drivers.map(d => d.id)) + 1,
-        numeroRegistro: formData.numeroRegistro,
+        numeroRegistro,
         nome: formData.nome,
         telefone: formData.telefone || undefined,
         createdAt: new Date().toISOString()

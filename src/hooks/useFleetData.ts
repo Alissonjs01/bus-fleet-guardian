@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { createCompanyIfMissing, replaceCompanyFleetData, seedInitialFleetData, subscribeFleetData } from "@/services/fleetService";
+import { createCompanyIfMissing, seedInitialFleetData, subscribeFleetData, syncCompanyFleetChanges } from "@/services/fleetService";
 import { getFleetData } from "@/utils/localStorage";
 import type { FleetData } from "@/types/fleet";
 import { useSyncStatus } from "@/hooks/useSyncStatus";
@@ -12,6 +12,11 @@ export function useFleetData() {
   const [pendingWrites, setPendingWrites] = useState(false);
   const [error, setError] = useState<string | undefined>();
   const syncStatus = useSyncStatus(pendingWrites, error);
+  const dataRef = useRef(data);
+
+  useEffect(() => {
+    dataRef.current = data;
+  }, [data]);
 
   useEffect(() => {
     if (!user?.companyId) {
@@ -30,6 +35,7 @@ export function useFleetData() {
       user.companyId,
       (fleetData, hasPendingWrites) => {
         setData(fleetData);
+        dataRef.current = fleetData;
         setPendingWrites(hasPendingWrites);
         setLoading(false);
       },
@@ -46,7 +52,7 @@ export function useFleetData() {
     const handleLocalChange = (event: Event) => {
       const detail = (event as CustomEvent<FleetData>).detail;
       if (!detail) return;
-      replaceCompanyFleetData(user.companyId, detail).catch((err) => {
+      syncCompanyFleetChanges(user.companyId, dataRef.current, detail).catch((err) => {
         setError(err instanceof Error ? err.message : "Erro ao sincronizar alterações");
       });
     };

@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Vehicle, FleetData } from "@/types/fleet";
-import { getFleetData, saveFleetData } from "@/utils/localStorage";
+import { getFleetData, normalizeRegistration, saveFleetData } from "@/utils/localStorage";
 import { Car, Plus, Edit, Trash2, Activity, Wrench, Home } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -37,7 +37,9 @@ export const VehicleManagement = () => {
     e.preventDefault();
     if (!data) return;
 
-    if (!formData.numeroRegistro.trim()) {
+    const numeroRegistro = normalizeRegistration(formData.numeroRegistro);
+
+    if (!numeroRegistro) {
       toast({
         title: "Erro",
         description: "Número de registro é obrigatório",
@@ -48,7 +50,7 @@ export const VehicleManagement = () => {
 
     // Verificar se já existe um veículo com este número
     const existingVehicle = data.vehicles.find(v => 
-      v.numeroRegistro === formData.numeroRegistro && 
+      v.numeroRegistro === numeroRegistro && 
       (!editingVehicle || v.id !== editingVehicle.id)
     );
 
@@ -69,7 +71,7 @@ export const VehicleManagement = () => {
       if (index !== -1) {
         newData.vehicles[index] = {
           ...editingVehicle,
-          numeroRegistro: formData.numeroRegistro,
+          numeroRegistro,
           tipo: formData.tipo,
           status: formData.status
         };
@@ -82,7 +84,7 @@ export const VehicleManagement = () => {
       // Criar novo veículo
       const newVehicle: Vehicle = {
         id: Math.max(0, ...newData.vehicles.map(v => v.id)) + 1,
-        numeroRegistro: formData.numeroRegistro,
+        numeroRegistro,
         tipo: formData.tipo,
         status: formData.status,
         createdAt: new Date().toISOString()

@@ -2,14 +2,29 @@ import { FleetData } from '@/types/fleet';
 
 const STORAGE_KEY = 'fleet-management-cache';
 
-// TODO: Migrar para servidor Node.js + dados.json quando implementar Electron
+export const normalizeRegistration = (value: string): string => value.trim().toUpperCase();
+
+const normalizeFleetData = (data: FleetData): FleetData => ({
+  vehicles: data.vehicles.map((vehicle) => ({
+    ...vehicle,
+    numeroRegistro: normalizeRegistration(vehicle.numeroRegistro),
+  })),
+  drivers: data.drivers.map((driver) => ({
+    ...driver,
+    numeroRegistro: normalizeRegistration(driver.numeroRegistro),
+  })),
+  problems: data.problems,
+  revisions: data.revisions,
+  trips: data.trips,
+});
+
 export const getFleetData = (): FleetData => {
   try {
     const data = localStorage.getItem(STORAGE_KEY);
     if (!data) {
       return getInitialData();
     }
-    return JSON.parse(data);
+    return normalizeFleetData(JSON.parse(data));
   } catch (error) {
     console.error('Erro ao carregar dados:', error);
     return getInitialData();
@@ -18,8 +33,9 @@ export const getFleetData = (): FleetData => {
 
 export const saveFleetData = (data: FleetData): void => {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    window.dispatchEvent(new CustomEvent('fleet-cache-updated', { detail: data }));
+    const normalizedData = normalizeFleetData(data);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(normalizedData));
+    window.dispatchEvent(new CustomEvent('fleet-cache-updated', { detail: normalizedData }));
   } catch (error) {
     console.error('Erro ao salvar dados:', error);
   }
@@ -27,7 +43,9 @@ export const saveFleetData = (data: FleetData): void => {
 
 export const saveFleetCache = (data: FleetData): void => {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    const normalizedData = normalizeFleetData(data);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(normalizedData));
+    window.dispatchEvent(new CustomEvent('fleet-cache-refreshed', { detail: normalizedData }));
   } catch (error) {
     console.error('Erro ao salvar cache:', error);
   }
