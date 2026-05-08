@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Lock, Loader2, KeyRound } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { activateAccessKey, loginWithEmail } from "@/services/authService";
+import { activateAccessKey, bootstrapFirstAdmin, loginWithEmail } from "@/services/authService";
 import { useAuth } from "@/contexts/AuthContext";
 import { isMobileViewport } from "@/services/deviceService";
 
@@ -12,7 +12,9 @@ const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [accessKey, setAccessKey] = useState("");
-  const [mode, setMode] = useState<"email" | "key">("email");
+  const [mode, setMode] = useState<"email" | "key" | "bootstrap">("email");
+  const [name, setName] = useState("");
+  const [companyName, setCompanyName] = useState("Empresa Demo");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const navigate = useNavigate();
@@ -55,8 +57,8 @@ const Login = () => {
   };
 
   const handleAccessKeyActivation = async () => {
-    if (!accessKey.trim()) {
-      setError("Informe a chave de acesso");
+    if (!accessKey.trim() || !email.trim() || !password.trim() || !name.trim()) {
+      setError("Informe chave, nome, email e senha");
       return;
     }
 
@@ -64,7 +66,11 @@ const Login = () => {
     setError("");
 
     try {
-      const result = await activateAccessKey(accessKey.trim());
+      const result = await activateAccessKey(accessKey.trim(), {
+        name: name.trim(),
+        email: email.trim(),
+        password,
+      });
       if (!result.success) {
         setError(result.error || "Chave inválida");
         return;
@@ -80,9 +86,42 @@ const Login = () => {
     }
   };
 
+  const handleBootstrapAdmin = async () => {
+    if (!email.trim() || !password.trim() || !name.trim() || !companyName.trim()) {
+      setError("Preencha nome, empresa, email e senha");
+      return;
+    }
+
+    setIsLoading(true);
+    setError("");
+
+    try {
+      const result = await bootstrapFirstAdmin({
+        name: name.trim(),
+        email: email.trim(),
+        password,
+        companyName: companyName.trim(),
+      });
+
+      if (!result.success) {
+        setError(result.error || "Não foi possível criar o primeiro admin");
+        return;
+      }
+
+      setMode("email");
+      setError("Admin criado. Entre com o email e senha cadastrados.");
+    } catch {
+      setError("Não foi possível criar o primeiro admin agora");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
-    void (mode === "email" ? handleEmailLogin() : handleAccessKeyActivation());
+    if (mode === "email") void handleEmailLogin();
+    if (mode === "key") void handleAccessKeyActivation();
+    if (mode === "bootstrap") void handleBootstrapAdmin();
   };
 
   return (
@@ -91,7 +130,9 @@ const Login = () => {
         <CardHeader>
           <div className="flex items-center gap-2 text-primary">
             {mode === "email" ? <Lock className="h-6 w-6" /> : <KeyRound className="h-6 w-6" />}
-            <CardTitle>{mode === "email" ? "Login" : "Ativar Chave"}</CardTitle>
+            <CardTitle>
+              {mode === "email" ? "Login" : mode === "key" ? "Ativar Chave" : "Primeiro Admin"}
+            </CardTitle>
           </div>
         </CardHeader>
         <CardContent>
@@ -116,13 +157,47 @@ const Login = () => {
                 />
               </>
             ) : (
-              <Input
-                type="text"
-                placeholder="Digite sua chave de acesso"
-                value={accessKey}
-                onChange={(e) => setAccessKey(e.target.value.toUpperCase())}
-                disabled={isLoading}
-              />
+              <>
+                {mode === "key" && (
+                  <Input
+                    type="text"
+                    placeholder="Digite sua chave de acesso"
+                    value={accessKey}
+                    onChange={(e) => setAccessKey(e.target.value.toUpperCase())}
+                    disabled={isLoading}
+                  />
+                )}
+                <Input
+                  type="text"
+                  placeholder="Nome"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  disabled={isLoading}
+                />
+                {mode === "bootstrap" && (
+                  <Input
+                    type="text"
+                    placeholder="Empresa"
+                    value={companyName}
+                    onChange={(e) => setCompanyName(e.target.value)}
+                    disabled={isLoading}
+                  />
+                )}
+                <Input
+                  type="email"
+                  placeholder="Email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={isLoading}
+                />
+                <Input
+                  type="password"
+                  placeholder="Senha"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={isLoading}
+                />
+              </>
             )}
 
             <Button type="submit" className="w-full" disabled={isLoading}>
@@ -133,6 +208,8 @@ const Login = () => {
                 </>
               ) : mode === "email" ? (
                 "Entrar"
+              ) : mode === "bootstrap" ? (
+                "Criar admin"
               ) : (
                 "Ativar"
               )}
@@ -150,6 +227,21 @@ const Login = () => {
             >
               {mode === "email" ? "Usar chave de acesso" : "Voltar para login"}
             </Button>
+
+            {mode === "email" && (
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full"
+                onClick={() => {
+                  setMode("bootstrap");
+                  setError("");
+                }}
+                disabled={isLoading}
+              >
+                Criar primeiro admin
+              </Button>
+            )}
           </form>
         </CardContent>
       </Card>

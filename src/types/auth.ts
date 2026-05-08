@@ -26,6 +26,12 @@ export interface AccessKeyActivationResult {
   error?: string;
 }
 
+export interface BootstrapAdminResult {
+  success: boolean;
+  email?: string;
+  error?: string;
+}
+
 export interface SyncStatus {
   state: "online" | "offline" | "syncing" | "synced" | "error";
   isOnline: boolean;

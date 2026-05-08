@@ -8,7 +8,7 @@ import {
 import { doc, getDoc, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { auth, db, functions } from "@/integrations/firebase/client";
-import type { AccessKeyActivationResult, AppUser, UserRole } from "@/types/auth";
+import type { AccessKeyActivationResult, AppUser, BootstrapAdminResult, UserRole } from "@/types/auth";
 import { getDeviceId, getUserAgent } from "@/services/deviceService";
 
 const DEFAULT_COMPANY_ID = "demo-company";
@@ -103,15 +103,35 @@ export async function registerWithEmail(email: string, password: string, name: s
   return profile;
 }
 
-export async function activateAccessKey(code: string): Promise<AccessKeyActivationResult> {
+export async function activateAccessKey(
+  code: string,
+  userData?: { name: string; email: string; password: string },
+): Promise<AccessKeyActivationResult> {
   const activate = httpsCallable(functions, "activateLicenseKey");
   const result = await activate({
     code,
+    ...userData,
     deviceId: getDeviceId(),
     userAgent: getUserAgent(),
   });
 
   return result.data as AccessKeyActivationResult;
+}
+
+export async function bootstrapFirstAdmin(userData: {
+  name: string;
+  email: string;
+  password: string;
+  companyName: string;
+}): Promise<BootstrapAdminResult> {
+  const bootstrap = httpsCallable(functions, "bootstrapFirstAdmin");
+  const result = await bootstrap({
+    ...userData,
+    deviceId: getDeviceId(),
+    userAgent: getUserAgent(),
+  });
+
+  return result.data as BootstrapAdminResult;
 }
 
 export async function logout() {

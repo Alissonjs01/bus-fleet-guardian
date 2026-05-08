@@ -38,6 +38,62 @@ async function writeLog(data: Record<string, unknown>) {
   });
 }
 
+export const bootstrapFirstAdmin = onCall(async (request) => {
+  const existingAdmins = await db.collection("users").where("role", "==", "admin").limit(1).get();
+  if (!existingAdmins.empty) {
+    throw new HttpsError("failed-precondition", "O primeiro admin já foi configurado");
+  }
+
+  const email = String(request.data.email || "").trim().toLowerCase();
+  const password = String(request.data.password || "");
+  const name = String(request.data.name || "Administrador").trim();
+  const companyName = String(request.data.companyName || "Empresa Demo").trim();
+  const userAgent = String(request.data.userAgent || request.rawRequest.get("user-agent") || "");
+
+  if (!email || password.length < 6) {
+    throw new HttpsError("invalid-argument", "Email e senha com pelo menos 6 caracteres são obrigatórios");
+  }
+
+  const companyRef = db.collection("companies").doc();
+  const userRecord = await admin.auth().createUser({
+    email,
+    password,
+    displayName: name,
+    emailVerified: false,
+  });
+
+  await db.runTransaction(async (transaction) => {
+    transaction.set(companyRef, {
+      name: companyName,
+      status: "active",
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    transaction.set(db.doc(`users/${userRecord.uid}`), {
+      name,
+      email,
+      role: "admin",
+      companyId: companyRef.id,
+      status: "active",
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      lastLoginAt: admin.firestore.FieldValue.serverTimestamp(),
+      lastIp: request.rawRequest.ip,
+      lastUserAgent: userAgent,
+    });
+  });
+
+  await writeLog({
+    userId: userRecord.uid,
+    companyId: companyRef.id,
+    action: "first_admin_created",
+    ip: request.rawRequest.ip,
+    userAgent,
+    details: { companyName },
+  });
+
+  return { success: true, email };
+});
+
 export const createLicenseKey = onCall(async (request) => {
   const manager = await requireManager(request.auth?.uid);
   const code = generateCode();
@@ -122,13 +178,25 @@ export const activateLicenseKey = onCall(async (request) => {
     throw new HttpsError("resource-exhausted", "Limite de dispositivos atingido");
   }
 
-  const uid = request.auth?.uid;
+  let uid = request.auth?.uid;
+  let email = "";
+
   if (!uid) {
-    return {
-      success: true,
-      email: "",
-      error: "Crie/entre com uma conta Firebase Auth antes de vincular a chave.",
-    };
+    email = String(request.data.email || "").trim().toLowerCase();
+    const password = String(request.data.password || "");
+    const name = String(request.data.name || "Usuário").trim();
+
+    if (!email || password.length < 6) {
+      throw new HttpsError("invalid-argument", "Email e senha com pelo menos 6 caracteres são obrigatórios");
+    }
+
+    const userRecord = await admin.auth().createUser({
+      email,
+      password,
+      displayName: name,
+      emailVerified: false,
+    });
+    uid = userRecord.uid;
   }
 
   await db.runTransaction(async (transaction) => {
@@ -150,6 +218,8 @@ export const activateLicenseKey = onCall(async (request) => {
     transaction.set(
       db.doc(`users/${uid}`),
       {
+        name: request.data.name || "",
+        email,
         role: license.role,
         companyId: license.companyId,
         licenseKeyId: licenseRef.id,
@@ -177,7 +247,7 @@ export const activateLicenseKey = onCall(async (request) => {
     details: { deviceId },
   });
 
-  return { success: true };
+  return { success: true, email };
 });
 
 export const updateLicenseStatus = onCall(async (request) => {
