@@ -35,15 +35,15 @@ export async function getUserProfile(userId: string): Promise<AppUser | null> {
   return normalizeUser(snapshot.id, snapshot.data());
 }
 
-async function ensureDemoAdmin(user: User): Promise<AppUser> {
+async function ensureDefaultProfile(user: User): Promise<AppUser> {
   const existing = await getUserProfile(user.uid);
   if (existing) return existing;
 
   const profile: AppUser = {
     id: user.uid,
-    name: user.displayName || user.email || "Administrador",
+    name: user.displayName || user.email || "Usuário",
     email: user.email || "",
-    role: "admin",
+    role: "motorista",
     companyId: DEFAULT_COMPANY_ID,
     status: "active",
     createdAt: new Date().toISOString(),
@@ -66,7 +66,7 @@ export function subscribeAuthState(callback: (user: AppUser | null, firebaseUser
       return;
     }
 
-    const profile = (await getUserProfile(firebaseUser.uid)) || (await ensureDemoAdmin(firebaseUser));
+    const profile = (await getUserProfile(firebaseUser.uid)) || (await ensureDefaultProfile(firebaseUser));
     await updateDoc(doc(db, "users", firebaseUser.uid), {
       lastLoginAt: serverTimestamp(),
       lastUserAgent: getUserAgent(),
@@ -78,7 +78,7 @@ export function subscribeAuthState(callback: (user: AppUser | null, firebaseUser
 
 export async function loginWithEmail(email: string, password: string) {
   const credential = await signInWithEmailAndPassword(auth, email, password);
-  return (await getUserProfile(credential.user.uid)) || ensureDemoAdmin(credential.user);
+  return (await getUserProfile(credential.user.uid)) || ensureDefaultProfile(credential.user);
 }
 
 export async function registerWithEmail(email: string, password: string, name: string, role: UserRole = "motorista") {
