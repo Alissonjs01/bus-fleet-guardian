@@ -57,9 +57,13 @@ service cloud.firestore {
 
     match /vehicles/{vehicleId} {
       allow read: if sameCompany(resource.data.companyId) || publicDemoCompany(resource.data.companyId);
-      allow create: if isManager() && sameCompany(request.resource.data.companyId);
+      allow create: if isManager() && (sameCompany(request.resource.data.companyId) || publicDemoCompany(request.resource.data.companyId));
       allow update: if (
         isManager() && sameCompany(resource.data.companyId) && sameCompany(request.resource.data.companyId)
+      ) || (
+        isManager() &&
+        publicDemoCompany(resource.data.companyId) &&
+        publicDemoCompany(request.resource.data.companyId)
       ) || (
         publicDemoCompany(resource.data.companyId) &&
         publicDemoCompany(request.resource.data.companyId) &&
@@ -71,14 +75,18 @@ service cloud.firestore {
         sameCompany(request.resource.data.companyId) &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt'])
       );
-      allow delete: if isManager() && sameCompany(resource.data.companyId);
+      allow delete: if isManager() && (sameCompany(resource.data.companyId) || publicDemoCompany(resource.data.companyId));
     }
 
     match /drivers/{driverId} {
       allow read: if sameCompany(resource.data.companyId) || publicDemoCompany(resource.data.companyId);
-      allow create: if isManager() && sameCompany(request.resource.data.companyId);
+      allow create: if isManager() && (sameCompany(request.resource.data.companyId) || publicDemoCompany(request.resource.data.companyId));
       allow update: if (
         isManager() && sameCompany(resource.data.companyId) && sameCompany(request.resource.data.companyId)
+      ) || (
+        isManager() &&
+        publicDemoCompany(resource.data.companyId) &&
+        publicDemoCompany(request.resource.data.companyId)
       ) || (
         publicDemoCompany(resource.data.companyId) &&
         publicDemoCompany(request.resource.data.companyId) &&
@@ -91,7 +99,7 @@ service cloud.firestore {
         sameCompany(request.resource.data.companyId) &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt'])
       );
-      allow delete: if isManager() && sameCompany(resource.data.companyId);
+      allow delete: if isManager() && (sameCompany(resource.data.companyId) || publicDemoCompany(resource.data.companyId));
     }
 
     match /issues/{issueId} {
@@ -99,13 +107,14 @@ service cloud.firestore {
       allow create: if (
         signedIn() && sameCompany(request.resource.data.companyId) && userRole() in ['admin', 'gestor', 'motorista']
       ) || publicDemoCompany(request.resource.data.companyId);
-      allow update: if signedIn() && sameCompany(resource.data.companyId) && userRole() in ['admin', 'gestor', 'motorista'];
-      allow delete: if isManager() && sameCompany(resource.data.companyId);
+      allow update: if (signedIn() && sameCompany(resource.data.companyId) && userRole() in ['admin', 'gestor', 'motorista']) ||
+        (isManager() && publicDemoCompany(resource.data.companyId));
+      allow delete: if isManager() && (sameCompany(resource.data.companyId) || publicDemoCompany(resource.data.companyId));
     }
 
     match /maintenance/{maintenanceId} {
       allow read: if sameCompany(resource.data.companyId) || publicDemoCompany(resource.data.companyId);
-      allow create, update, delete: if isManager() && sameCompany(request.resource.data.companyId);
+      allow create, update, delete: if isManager() && (sameCompany(request.resource.data.companyId) || publicDemoCompany(request.resource.data.companyId));
     }
 
     match /trips/{tripId} {
@@ -116,7 +125,7 @@ service cloud.firestore {
       allow update: if (
         signedIn() && sameCompany(resource.data.companyId) && sameCompany(request.resource.data.companyId) && userRole() in ['admin', 'gestor', 'motorista']
       ) || (publicDemoCompany(resource.data.companyId) && publicDemoCompany(request.resource.data.companyId));
-      allow delete: if isManager() && sameCompany(resource.data.companyId);
+      allow delete: if isManager() && (sameCompany(resource.data.companyId) || publicDemoCompany(resource.data.companyId));
     }
 
     match /routes/{routeId} {
@@ -127,7 +136,7 @@ service cloud.firestore {
       allow update: if (
         signedIn() && sameCompany(resource.data.companyId) && sameCompany(request.resource.data.companyId) && userRole() in ['admin', 'gestor', 'motorista']
       ) || (publicDemoCompany(resource.data.companyId) && publicDemoCompany(request.resource.data.companyId));
-      allow delete: if isManager() && sameCompany(resource.data.companyId);
+      allow delete: if isManager() && (sameCompany(resource.data.companyId) || publicDemoCompany(resource.data.companyId));
     }
 
     match /accessLogs/{logId} {

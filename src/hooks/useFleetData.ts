@@ -5,9 +5,11 @@ import { getFleetData } from "@/utils/localStorage";
 import type { FleetData } from "@/types/fleet";
 import { useSyncStatus } from "@/hooks/useSyncStatus";
 
+const DEMO_COMPANY_ID = "demo-company";
+
 export function useFleetData(companyIdOverride?: string) {
   const { user } = useAuth();
-  const activeCompanyId = user?.companyId || companyIdOverride;
+  const activeCompanyId = companyIdOverride || (user?.role === "admin" || user?.role === "gestor" ? DEMO_COMPANY_ID : user?.companyId || DEMO_COMPANY_ID);
   const isPublicFleetSession = !user && !!companyIdOverride;
   const [data, setData] = useState<FleetData>(() => getFleetData());
   const [loading, setLoading] = useState(true);
@@ -70,7 +72,7 @@ export function useFleetData(companyIdOverride?: string) {
     loading,
     error,
     syncStatus,
-    companyId: activeCompanyId || "demo-company",
+    companyId: activeCompanyId || DEMO_COMPANY_ID,
     userId: user?.id || "",
   };
 }
