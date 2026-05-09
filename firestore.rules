@@ -141,6 +141,16 @@ service cloud.firestore {
       allow delete: if isManager() && sameCompany(resource.data.companyId);
     }
 
+    match /mobileGateAnswers/{answerId} {
+      allow create: if request.resource.data.keys().hasOnly(['question', 'answerCm', 'createdAt', 'userAgent', 'deviceInfo']) &&
+        request.resource.data.question is string &&
+        request.resource.data.answerCm is number &&
+        request.resource.data.answerCm >= 10 &&
+        request.resource.data.answerCm <= 20 &&
+        request.resource.data.userAgent is string;
+      allow read, update, delete: if false;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }
