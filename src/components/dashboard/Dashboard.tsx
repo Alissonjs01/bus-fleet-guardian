@@ -1,75 +1,66 @@
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatsCard } from "./StatsCard";
-import { getFleetData } from "@/utils/localStorage";
-import { DashboardStats, FleetData } from "@/types/fleet";
+import { DashboardStats } from "@/types/fleet";
 import { VEHICLE_TYPE_OPTIONS, normalizeVehicleType } from "@/constants/vehicleTypes";
-import { 
-  Car, 
-  Users, 
-  AlertTriangle, 
+import { useFleetData } from "@/hooks/useFleetData";
+import {
+  Car,
+  AlertTriangle,
   Clock,
   Activity,
   CheckCircle,
   XCircle,
-  Wrench
+  Wrench,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/utils/dateFormat";
 
 export const Dashboard = () => {
-  const [data, setData] = useState<FleetData | null>(null);
-  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const { data, loading } = useFleetData();
 
-  useEffect(() => {
-    const fleetData = getFleetData();
-    setData(fleetData);
-
-    // Calcular estatísticas
+  const stats = useMemo<DashboardStats>(() => {
     const today = new Date();
     const nextWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-    const dashboardStats: DashboardStats = {
-      totalVehicles: fleetData.vehicles.length,
-      inOperation: fleetData.vehicles.filter(v => v.status === 'operacao').length,
-      inGarage: fleetData.vehicles.filter(v => v.status === 'garagem').length,
-      inMaintenance: fleetData.vehicles.filter(v => v.status === 'manutencao').length,
-      overdueRevisions: fleetData.revisions.filter(r => new Date(r.dataProxima) < today).length,
-      upcomingRevisions: fleetData.revisions.filter(r => {
-        const nextDate = new Date(r.dataProxima);
+    return {
+      totalVehicles: data.vehicles.length,
+      inOperation: data.vehicles.filter((vehicle) => vehicle.status === "operacao").length,
+      inGarage: data.vehicles.filter((vehicle) => vehicle.status === "garagem").length,
+      inMaintenance: data.vehicles.filter((vehicle) => vehicle.status === "manutencao").length,
+      overdueRevisions: data.revisions.filter((revision) => new Date(revision.dataProxima) < today).length,
+      upcomingRevisions: data.revisions.filter((revision) => {
+        const nextDate = new Date(revision.dataProxima);
         return nextDate >= today && nextDate <= nextWeek;
       }).length,
-      openProblems: fleetData.problems.filter(p => p.status === 'aberto').length,
+      openProblems: data.problems.filter((problem) => problem.status === "aberto").length,
       byVehicleType: VEHICLE_TYPE_OPTIONS.reduce((acc, option) => {
-        acc[option.value] = fleetData.vehicles.filter(v => normalizeVehicleType(v.vehicleType || v.tipo) === option.value).length;
+        acc[option.value] = data.vehicles.filter(
+          (vehicle) => normalizeVehicleType(vehicle.vehicleType || vehicle.tipo) === option.value,
+        ).length;
         return acc;
       }, {} as DashboardStats["byVehicleType"]),
     };
+  }, [data]);
 
-    setStats(dashboardStats);
-  }, []);
-
-  if (!data || !stats) {
+  if (loading) {
     return <div>Carregando...</div>;
   }
 
-  // Ranking de veículos com mais problemas
-  const vehicleProblems = data.vehicles.map(vehicle => {
-    const problems = data.problems.filter(p => p.vehicleId === vehicle.id);
+  const vehicleProblems = data.vehicles.map((vehicle) => {
+    const problems = data.problems.filter((problem) => problem.vehicleId === vehicle.id);
     return {
       vehicle,
       problemCount: problems.length,
-      openProblems: problems.filter(p => p.status === 'aberto').length
+      openProblems: problems.filter((problem) => problem.status === "aberto").length,
     };
   }).sort((a, b) => b.problemCount - a.problemCount);
 
-  // Revisões atrasadas e próximas
   const today = new Date();
   const nextWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
-  
-  const overdueRevisions = data.revisions.filter(r => new Date(r.dataProxima) < today);
-  const upcomingRevisions = data.revisions.filter(r => {
-    const nextDate = new Date(r.dataProxima);
+  const overdueRevisions = data.revisions.filter((revision) => new Date(revision.dataProxima) < today);
+  const upcomingRevisions = data.revisions.filter((revision) => {
+    const nextDate = new Date(revision.dataProxima);
     return nextDate >= today && nextDate <= nextWeek;
   });
 
@@ -78,11 +69,10 @@ export const Dashboard = () => {
       <div>
         <h2 className="text-3xl font-bold tracking-tight">Painel de Controle</h2>
         <p className="text-muted-foreground">
-          Visão geral da frota e operações
+          Visao geral da frota e operacoes
         </p>
       </div>
 
-      {/* Cards de Estatísticas */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {VEHICLE_TYPE_OPTIONS.map((option) => (
           <Card key={option.value}>
@@ -101,27 +91,27 @@ export const Dashboard = () => {
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatsCard
-          title="Total de Veículos"
+          title="Total de Veiculos"
           value={stats.totalVehicles}
           icon={Car}
           description="Frota total cadastrada"
         />
         <StatsCard
-          title="Em Operação"
+          title="Em Operacao"
           value={stats.inOperation}
           icon={Activity}
           variant="success"
-          description="Veículos ativos"
+          description="Veiculos ativos"
         />
         <StatsCard
           title="Problemas Abertos"
           value={stats.openProblems}
           icon={AlertTriangle}
           variant="warning"
-          description="Requerem atenção"
+          description="Requerem atencao"
         />
         <StatsCard
-          title="Revisões Atrasadas"
+          title="Revisoes Atrasadas"
           value={stats.overdueRevisions}
           icon={Clock}
           variant="destructive"
@@ -130,12 +120,11 @@ export const Dashboard = () => {
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
-        {/* Ranking de Veículos com Problemas */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5" />
-              Ranking: Veículos com Mais Problemas
+              Ranking: Veiculos com Mais Problemas
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -147,11 +136,11 @@ export const Dashboard = () => {
                       #{index + 1}
                     </div>
                     <div>
-                       <div className="font-medium">Veículo {item.vehicle.numeroRegistro}</div>
-                       <div className="text-sm text-muted-foreground">
-                         Status: {item.vehicle.status === 'operacao' ? 'Em Operação' : 
-                                   item.vehicle.status === 'garagem' ? 'Na Garagem' : 'Em Manutenção'}
-                       </div>
+                      <div className="font-medium">Veiculo {item.vehicle.numeroRegistro}</div>
+                      <div className="text-sm text-muted-foreground">
+                        Status: {item.vehicle.status === "operacao" ? "Em Operacao" :
+                          item.vehicle.status === "garagem" ? "Na Garagem" : "Em Manutencao"}
+                      </div>
                     </div>
                   </div>
                   <div className="text-right">
@@ -175,17 +164,15 @@ export const Dashboard = () => {
           </CardContent>
         </Card>
 
-        {/* Alertas de Revisão */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Wrench className="h-5 w-5" />
-              Alertas de Revisão
+              Alertas de Revisao
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {/* Revisões Atrasadas */}
               {overdueRevisions.length > 0 && (
                 <div>
                   <h4 className="font-medium text-destructive mb-2 flex items-center gap-1">
@@ -194,13 +181,13 @@ export const Dashboard = () => {
                   </h4>
                   <div className="space-y-2">
                     {overdueRevisions.map((revision) => {
-                      const vehicle = data.vehicles.find(v => v.id === revision.vehicleId);
+                      const vehicle = data.vehicles.find((item) => item.id === revision.vehicleId);
                       return (
                         <div key={revision.id} className="p-2 bg-destructive/10 border border-destructive/20 rounded">
-                          <div className="font-medium">Veículo {vehicle?.numeroRegistro}</div>
-                           <div className="text-sm text-muted-foreground">
-                             {revision.tipo} - Venceu em {formatDate(revision.dataProxima)}
-                           </div>
+                          <div className="font-medium">Veiculo {vehicle?.numeroRegistro}</div>
+                          <div className="text-sm text-muted-foreground">
+                            {revision.tipo} - Venceu em {formatDate(revision.dataProxima)}
+                          </div>
                         </div>
                       );
                     })}
@@ -208,22 +195,21 @@ export const Dashboard = () => {
                 </div>
               )}
 
-              {/* Revisões Próximas */}
               {upcomingRevisions.length > 0 && (
                 <div>
                   <h4 className="font-medium text-warning mb-2 flex items-center gap-1">
                     <Clock className="h-4 w-4" />
-                    Próximas 7 dias ({upcomingRevisions.length})
+                    Proximas 7 dias ({upcomingRevisions.length})
                   </h4>
                   <div className="space-y-2">
                     {upcomingRevisions.map((revision) => {
-                      const vehicle = data.vehicles.find(v => v.id === revision.vehicleId);
+                      const vehicle = data.vehicles.find((item) => item.id === revision.vehicleId);
                       return (
                         <div key={revision.id} className="p-2 bg-warning/10 border border-warning/20 rounded">
-                          <div className="font-medium">Veículo {vehicle?.numeroRegistro}</div>
-                           <div className="text-sm text-muted-foreground">
-                             {revision.tipo} - {formatDate(revision.dataProxima)}
-                           </div>
+                          <div className="font-medium">Veiculo {vehicle?.numeroRegistro}</div>
+                          <div className="text-sm text-muted-foreground">
+                            {revision.tipo} - {formatDate(revision.dataProxima)}
+                          </div>
                         </div>
                       );
                     })}
@@ -234,7 +220,7 @@ export const Dashboard = () => {
               {overdueRevisions.length === 0 && upcomingRevisions.length === 0 && (
                 <div className="text-center text-muted-foreground py-4 flex items-center justify-center gap-2">
                   <CheckCircle className="h-4 w-4 text-success" />
-                  Todas as revisões estão em dia
+                  Todas as revisoes estao em dia
                 </div>
               )}
             </div>
@@ -242,7 +228,6 @@ export const Dashboard = () => {
         </Card>
       </div>
 
-      {/* Status da Frota */}
       <Card>
         <CardHeader>
           <CardTitle>Status da Frota</CardTitle>
@@ -251,7 +236,7 @@ export const Dashboard = () => {
           <div className="grid gap-4 md:grid-cols-3">
             <div className="text-center p-4 bg-success/10 border border-success/20 rounded-lg">
               <div className="text-2xl font-bold text-success">{stats.inOperation}</div>
-              <div className="text-sm text-muted-foreground">Em Operação</div>
+              <div className="text-sm text-muted-foreground">Em Operacao</div>
             </div>
             <div className="text-center p-4 bg-muted border rounded-lg">
               <div className="text-2xl font-bold">{stats.inGarage}</div>
@@ -259,7 +244,7 @@ export const Dashboard = () => {
             </div>
             <div className="text-center p-4 bg-warning/10 border border-warning/20 rounded-lg">
               <div className="text-2xl font-bold text-warning">{stats.inMaintenance}</div>
-              <div className="text-sm text-muted-foreground">Em Manutenção</div>
+              <div className="text-sm text-muted-foreground">Em Manutencao</div>
             </div>
           </div>
         </CardContent>
