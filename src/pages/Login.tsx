@@ -23,9 +23,10 @@ const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { setUser } = useAuth();
+  const showRealLogin = new URLSearchParams(location.search).get("login") === "1";
 
-  if (DESKTOP_GATE_CONFIG.enabled && !isMobileDevice()) {
-    return <DesktopGate />;
+  if (DESKTOP_GATE_CONFIG.enabled && !isMobileDevice() && !showRealLogin) {
+    return <DesktopGate onRealLogin={() => navigate("/login?login=1", { replace: true })} />;
   }
 
   const redirectByRole = (role: string) => {

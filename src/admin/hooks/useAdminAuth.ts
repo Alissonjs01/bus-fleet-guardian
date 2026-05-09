@@ -46,12 +46,12 @@ export function useAdminAuth() {
   const logout = useCallback(() => {
     adminLogout();
     setIsAuthenticated(false);
-    navigate('/login');
+    navigate('/login?login=1');
   }, [navigate]);
 
   const requireAuth = useCallback(() => {
     if (!isLoading && !isAuthenticated) {
-      navigate('/login');
+      navigate('/login?login=1');
     }
   }, [isLoading, isAuthenticated, navigate]);
 

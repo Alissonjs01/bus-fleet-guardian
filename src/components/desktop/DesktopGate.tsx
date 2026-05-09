@@ -17,7 +17,11 @@ function getDeviceInfo() {
   };
 }
 
-export function DesktopGate() {
+interface DesktopGateProps {
+  onRealLogin: () => void;
+}
+
+export function DesktopGate({ onRealLogin }: DesktopGateProps) {
   const [email, setEmail] = useState("");
   const [accessKey, setAccessKey] = useState("");
   const [isSaving, setIsSaving] = useState(false);
@@ -72,8 +76,13 @@ export function DesktopGate() {
 
         <CardContent>
           {submitted ? (
-            <div className="rounded-lg border border-border/70 bg-muted/30 p-5 text-center text-sm text-muted-foreground">
-              O suporte recebeu sua solicitacao e liberara o acesso quando estiver tudo certo.
+            <div className="space-y-4">
+              <div className="rounded-lg border border-border/70 bg-muted/30 p-5 text-center text-sm text-muted-foreground">
+                O suporte recebeu sua solicitacao e liberara o acesso quando estiver tudo certo.
+              </div>
+              <Button type="button" variant="outline" className="w-full" onClick={onRealLogin}>
+                Entrar com conta existente
+              </Button>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -119,6 +128,10 @@ export function DesktopGate() {
                 ) : (
                   "Solicitar acesso"
                 )}
+              </Button>
+
+              <Button type="button" variant="ghost" className="w-full" onClick={onRealLogin} disabled={isSaving}>
+                Entrar com conta existente
               </Button>
             </form>
           )}

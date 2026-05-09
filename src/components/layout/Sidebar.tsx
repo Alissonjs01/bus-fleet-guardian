@@ -8,9 +8,13 @@ import {
   FileText,
   HardDrive,
   LayoutDashboard,
+  LogOut,
   Menu,
   X,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { logout as logoutFirebase } from "@/services/authService";
 
 interface SidebarProps {
   activeView: string;
@@ -30,6 +34,15 @@ const menuItems = [
 ];
 
 export const Sidebar = ({ activeView, onViewChange, isCollapsed, onToggleCollapse }: SidebarProps) => {
+  const navigate = useNavigate();
+  const { setUser } = useAuth();
+
+  const handleLogout = async () => {
+    await logoutFirebase();
+    setUser(null);
+    navigate("/login?login=1", { replace: true });
+  };
+
   return (
     <div className={cn(
       "bg-card border-r border-border h-screen transition-all duration-300 flex flex-col",
@@ -81,6 +94,21 @@ export const Sidebar = ({ activeView, onViewChange, isCollapsed, onToggleCollaps
           );
         })}
       </nav>
+
+      <div className="border-t border-border p-2">
+        <Button
+          variant="ghost"
+          className={cn(
+            "w-full text-muted-foreground hover:text-foreground",
+            isCollapsed ? "justify-center p-2" : "justify-start gap-3 px-3",
+          )}
+          onClick={handleLogout}
+          title={isCollapsed ? "Sair" : undefined}
+        >
+          <LogOut className="h-4 w-4 shrink-0" />
+          {!isCollapsed && <span className="truncate">Sair</span>}
+        </Button>
+      </div>
     </div>
   );
 };
