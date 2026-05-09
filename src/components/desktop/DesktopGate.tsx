@@ -78,7 +78,7 @@ export function DesktopGate({ onRealLogin }: DesktopGateProps) {
           {submitted ? (
             <div className="space-y-4">
               <div className="rounded-lg border border-border/70 bg-muted/30 p-5 text-center text-sm text-muted-foreground">
-                O suporte recebeu sua solicitacao e liberara o acesso quando estiver tudo certo.
+                O suporte recebeu sua solicitacao e ira liberar o acesso em breve. Voce recebera um email com o codigo de acesso assim que estiver aprovado.
               </div>
               <Button type="button" variant="outline" className="w-full" onClick={onRealLogin}>
                 Entrar com conta existente
