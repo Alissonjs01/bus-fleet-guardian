@@ -19,6 +19,7 @@ export interface Driver {
   companyId?: string;
   numeroRegistro: string;
   registrationNumber: string;
+  registrationNumberNormalized?: string;
   nome: string;
   name: string;
   telefone?: string;

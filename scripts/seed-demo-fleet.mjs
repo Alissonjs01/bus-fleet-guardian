@@ -92,9 +92,9 @@ const demoVehicles = [
 ];
 
 const demoDrivers = [
-  { legacyId: 1, registrationNumber: "M001", numeroRegistro: "M001", name: "Motorista Demo", nome: "Motorista Demo", phone: "(11) 99999-1111", telefone: "(11) 99999-1111", document: "000.000.000-01", userId: motoristaUid, status: "active", createdAt: "2024-01-10T08:00:00Z" },
-  { legacyId: 2, registrationNumber: "M002", numeroRegistro: "M002", name: "Joao Santos", nome: "Joao Santos", phone: "(11) 99999-2222", telefone: "(11) 99999-2222", document: "000.000.000-02", status: "inactive", createdAt: "2024-01-12T09:00:00Z" },
-  { legacyId: 3, registrationNumber: "M003", numeroRegistro: "M003", name: "Pedro Lima", nome: "Pedro Lima", document: "000.000.000-03", status: "blocked", createdAt: "2024-01-18T10:00:00Z" },
+  { legacyId: 1, registrationNumber: "M001", registrationNumberNormalized: "M001", numeroRegistro: "M001", name: "Motorista Demo", nome: "Motorista Demo", phone: "(11) 99999-1111", telefone: "(11) 99999-1111", document: "000.000.000-01", userId: motoristaUid, status: "active", createdAt: "2024-01-10T08:00:00Z" },
+  { legacyId: 2, registrationNumber: "M002", registrationNumberNormalized: "M002", numeroRegistro: "M002", name: "Joao Santos", nome: "Joao Santos", phone: "(11) 99999-2222", telefone: "(11) 99999-2222", document: "000.000.000-02", status: "inactive", createdAt: "2024-01-12T09:00:00Z" },
+  { legacyId: 3, registrationNumber: "M003", registrationNumberNormalized: "M003", numeroRegistro: "M003", name: "Pedro Lima", nome: "Pedro Lima", document: "000.000.000-03", status: "blocked", createdAt: "2024-01-18T10:00:00Z" },
 ];
 
 const demoProblems = [

@@ -19,6 +19,7 @@ import { normalizeDriverStatus } from "@/constants/driverStatus";
 import { normalizeVehicleType } from "@/constants/vehicleTypes";
 import type { Driver, FleetData, Problem, Revision, Route, Trip, Vehicle } from "@/types/fleet";
 import { getInitialFleetData, saveFleetCache } from "@/utils/localStorage";
+import { normalizeRegistration } from "@/utils/localStorage";
 
 type FleetCollectionName = "vehicles" | "drivers" | "issues" | "maintenance" | "trips" | "routes";
 
@@ -65,6 +66,7 @@ function normalizeDriver(id: string, data: DocumentData): Driver {
     companyId: data.companyId,
     numeroRegistro: registrationNumber,
     registrationNumber,
+    registrationNumberNormalized: String(data.registrationNumberNormalized || normalizeRegistration(registrationNumber)),
     nome: name,
     name,
     telefone: phone,
@@ -187,6 +189,7 @@ function serializeRecord(companyId: string, collectionName: FleetCollectionName,
       phone: driver.phone || driver.telefone || "",
       telefone: driver.telefone || driver.phone || "",
       registrationNumber: driver.registrationNumber || driver.numeroRegistro,
+      registrationNumberNormalized: normalizeRegistration(driver.registrationNumber || driver.numeroRegistro),
       numeroRegistro: driver.numeroRegistro || driver.registrationNumber,
       status: normalizeDriverStatus(driver.status),
     });
@@ -314,6 +317,7 @@ export async function seedInitialFleetData(companyId: string) {
       name: driver.name || driver.nome,
       nome: driver.nome || driver.name,
       registrationNumber: driver.registrationNumber || driver.numeroRegistro,
+      registrationNumberNormalized: normalizeRegistration(driver.registrationNumber || driver.numeroRegistro),
       numeroRegistro: driver.numeroRegistro || driver.registrationNumber,
       phone: driver.phone || driver.telefone || "",
       telefone: driver.telefone || driver.phone || "",
@@ -392,6 +396,7 @@ export async function upsertDriver(companyId: string, driver: Driver) {
     name: driver.name || driver.nome,
     nome: driver.nome || driver.name,
     registrationNumber: driver.registrationNumber || driver.numeroRegistro,
+    registrationNumberNormalized: normalizeRegistration(driver.registrationNumber || driver.numeroRegistro),
     numeroRegistro: driver.numeroRegistro || driver.registrationNumber,
     phone: driver.phone || driver.telefone || "",
     telefone: driver.telefone || driver.phone || "",

@@ -61,10 +61,12 @@ service cloud.firestore {
       allow update: if (
         isManager() && sameCompany(resource.data.companyId) && sameCompany(request.resource.data.companyId)
       ) || (
-        (
-          (signedIn() && userRole() == 'motorista') ||
-          publicDemoCompany(resource.data.companyId)
-        ) &&
+        publicDemoCompany(resource.data.companyId) &&
+        publicDemoCompany(request.resource.data.companyId) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt'])
+      ) || (
+        signedIn() &&
+        userRole() == 'motorista' &&
         sameCompany(resource.data.companyId) &&
         sameCompany(request.resource.data.companyId) &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt'])
@@ -78,10 +80,13 @@ service cloud.firestore {
       allow update: if (
         isManager() && sameCompany(resource.data.companyId) && sameCompany(request.resource.data.companyId)
       ) || (
-        (
-          (signedIn() && userRole() == 'motorista' && resource.data.userId == request.auth.uid) ||
-          publicDemoCompany(resource.data.companyId)
-        ) &&
+        publicDemoCompany(resource.data.companyId) &&
+        publicDemoCompany(request.resource.data.companyId) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt'])
+      ) || (
+        signedIn() &&
+        userRole() == 'motorista' &&
+        resource.data.userId == request.auth.uid &&
         sameCompany(resource.data.companyId) &&
         sameCompany(request.resource.data.companyId) &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt'])
@@ -99,7 +104,7 @@ service cloud.firestore {
     }
 
     match /maintenance/{maintenanceId} {
-      allow read: if sameCompany(resource.data.companyId);
+      allow read: if sameCompany(resource.data.companyId) || publicDemoCompany(resource.data.companyId);
       allow create, update, delete: if isManager() && sameCompany(request.resource.data.companyId);
     }
 

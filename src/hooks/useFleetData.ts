@@ -8,6 +8,7 @@ import { useSyncStatus } from "@/hooks/useSyncStatus";
 export function useFleetData(companyIdOverride?: string) {
   const { user } = useAuth();
   const activeCompanyId = user?.companyId || companyIdOverride;
+  const isPublicFleetSession = !user && !!companyIdOverride;
   const [data, setData] = useState<FleetData>(() => getFleetData());
   const [loading, setLoading] = useState(true);
   const [pendingWrites, setPendingWrites] = useState(false);
@@ -28,9 +29,11 @@ export function useFleetData(companyIdOverride?: string) {
     setLoading(true);
     setError(undefined);
 
-    createCompanyIfMissing(activeCompanyId)
-      .then(() => seedInitialFleetData(activeCompanyId))
-      .catch((err) => setError(err instanceof Error ? err.message : "Erro ao preparar dados"));
+    if (!isPublicFleetSession) {
+      createCompanyIfMissing(activeCompanyId)
+        .then(() => seedInitialFleetData(activeCompanyId))
+        .catch((err) => setError(err instanceof Error ? err.message : "Erro ao preparar dados"));
+    }
 
     return subscribeFleetData(
       activeCompanyId,
@@ -45,7 +48,7 @@ export function useFleetData(companyIdOverride?: string) {
         setLoading(false);
       },
     );
-  }, [activeCompanyId]);
+  }, [activeCompanyId, isPublicFleetSession]);
 
   useEffect(() => {
     if (!activeCompanyId) return;

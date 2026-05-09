@@ -16,6 +16,7 @@ function normalizeDriver(id: string, data: Record<string, unknown>): Driver {
     companyId: String(data.companyId || ""),
     numeroRegistro: normalizeRegistration(registrationNumber),
     registrationNumber: normalizeRegistration(registrationNumber),
+    registrationNumberNormalized: String(data.registrationNumberNormalized || normalizeRegistration(registrationNumber)),
     nome: name,
     name,
     telefone: phone ? String(phone) : undefined,
@@ -65,12 +66,24 @@ export async function getDriverByRegistration(registrationNumber: string, compan
   const byRegistration = await getDocs(query(
     collection(db, "drivers"),
     where("companyId", "==", companyId),
-    where("registrationNumber", "==", normalizedRegistration),
+    where("registrationNumberNormalized", "==", normalizedRegistration),
     limit(1),
   ));
 
   if (!byRegistration.empty) {
     const item = byRegistration.docs[0];
+    return normalizeDriver(item.id, item.data());
+  }
+
+  const byRawRegistration = await getDocs(query(
+    collection(db, "drivers"),
+    where("companyId", "==", companyId),
+    where("registrationNumber", "==", normalizedRegistration),
+    limit(1),
+  ));
+
+  if (!byRawRegistration.empty) {
+    const item = byRawRegistration.docs[0];
     return normalizeDriver(item.id, item.data());
   }
 

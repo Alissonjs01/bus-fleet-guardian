@@ -20,6 +20,7 @@ const normalizeFleetData = (data: FleetData): FleetData => ({
     ...driver,
     numeroRegistro: normalizeRegistration(driver.numeroRegistro || driver.registrationNumber || ''),
     registrationNumber: normalizeRegistration(driver.registrationNumber || driver.numeroRegistro || ''),
+    registrationNumberNormalized: normalizeRegistration(driver.registrationNumber || driver.numeroRegistro || ''),
     nome: driver.nome || driver.name,
     name: driver.name || driver.nome,
     telefone: driver.telefone || driver.phone,
@@ -104,9 +105,9 @@ export const getInitialFleetData = (): FleetData => ({
     { id: 4, numeroRegistro: "15", tipo: VEHICLE_TYPES.ELETRICO, vehicleType: VEHICLE_TYPES.ELETRICO, status: "operacao", createdAt: "2024-02-10T11:00:00Z" },
   ],
   drivers: [
-    { id: 1, numeroRegistro: "M001", registrationNumber: "M001", nome: "Carlos Silva", name: "Carlos Silva", telefone: "(11) 99999-1111", phone: "(11) 99999-1111", document: "000.000.000-01", status: "active", createdAt: "2024-01-10T08:00:00Z" },
-    { id: 2, numeroRegistro: "M002", registrationNumber: "M002", nome: "Joao Santos", name: "Joao Santos", telefone: "(11) 99999-2222", phone: "(11) 99999-2222", document: "000.000.000-02", status: "inactive", createdAt: "2024-01-12T09:00:00Z" },
-    { id: 3, numeroRegistro: "M003", registrationNumber: "M003", nome: "Pedro Lima", name: "Pedro Lima", document: "000.000.000-03", status: "blocked", createdAt: "2024-01-18T10:00:00Z" },
+    { id: 1, numeroRegistro: "M001", registrationNumber: "M001", registrationNumberNormalized: "M001", nome: "Carlos Silva", name: "Carlos Silva", telefone: "(11) 99999-1111", phone: "(11) 99999-1111", document: "000.000.000-01", status: "active", createdAt: "2024-01-10T08:00:00Z" },
+    { id: 2, numeroRegistro: "M002", registrationNumber: "M002", registrationNumberNormalized: "M002", nome: "Joao Santos", name: "Joao Santos", telefone: "(11) 99999-2222", phone: "(11) 99999-2222", document: "000.000.000-02", status: "inactive", createdAt: "2024-01-12T09:00:00Z" },
+    { id: 3, numeroRegistro: "M003", registrationNumber: "M003", registrationNumberNormalized: "M003", nome: "Pedro Lima", name: "Pedro Lima", document: "000.000.000-03", status: "blocked", createdAt: "2024-01-18T10:00:00Z" },
   ],
   problems: [
     {
