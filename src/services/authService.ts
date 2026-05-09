@@ -78,7 +78,12 @@ export function subscribeAuthState(callback: (user: AppUser | null, firebaseUser
 
 export async function loginWithEmail(email: string, password: string) {
   const credential = await signInWithEmailAndPassword(auth, email, password);
-  return (await getUserProfile(credential.user.uid)) || ensureDefaultProfile(credential.user);
+  const profile = (await getUserProfile(credential.user.uid)) || await ensureDefaultProfile(credential.user);
+  if (profile.status !== "active") {
+    await signOut(auth);
+    throw new Error("Usuario bloqueado ou pendente");
+  }
+  return profile;
 }
 
 export async function registerWithEmail(email: string, password: string, name: string, role: UserRole = "motorista") {
