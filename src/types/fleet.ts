@@ -41,7 +41,7 @@ export interface Problem {
   categoria: 'eletrica' | 'mecanica' | 'funilaria' | 'limpeza' | 'pneus' | 'outros';
   gravidade: 'baixa' | 'media' | 'alta' | 'critica';
   observacao: string;
-  status: 'aberto' | 'resolvido';
+  status: 'aberta' | 'em_andamento' | 'resolvida' | 'cancelada';
   createdAt: string;
   updatedAt?: string;
   resolvedAt?: string;
@@ -53,6 +53,7 @@ export interface Revision {
   companyId?: string;
   vehicleId: number;
   tipo: 'eletrica' | 'mecanica' | 'funilaria' | 'geral';
+  status: 'agendada' | 'em_andamento' | 'concluida' | 'cancelada';
   dataRevisao: string;
   dataProxima: string;
   observacao?: string;

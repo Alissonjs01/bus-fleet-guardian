@@ -4,6 +4,7 @@ import { StatsCard } from "./StatsCard";
 import { DashboardStats } from "@/types/fleet";
 import { VEHICLE_TYPE_OPTIONS, normalizeVehicleType } from "@/constants/vehicleTypes";
 import { useFleetData } from "@/hooks/useFleetData";
+import { isProblemOpen, isRevisionActive } from "@/services/fleetService";
 import {
   Car,
   AlertTriangle,
@@ -28,12 +29,12 @@ export const Dashboard = () => {
       inOperation: data.vehicles.filter((vehicle) => vehicle.status === "operacao").length,
       inGarage: data.vehicles.filter((vehicle) => vehicle.status === "garagem").length,
       inMaintenance: data.vehicles.filter((vehicle) => vehicle.status === "manutencao").length,
-      overdueRevisions: data.revisions.filter((revision) => new Date(revision.dataProxima) < today).length,
+      overdueRevisions: data.revisions.filter((revision) => isRevisionActive(revision.status) && new Date(revision.dataProxima) < today).length,
       upcomingRevisions: data.revisions.filter((revision) => {
         const nextDate = new Date(revision.dataProxima);
-        return nextDate >= today && nextDate <= nextWeek;
+        return isRevisionActive(revision.status) && nextDate >= today && nextDate <= nextWeek;
       }).length,
-      openProblems: data.problems.filter((problem) => problem.status === "aberto").length,
+      openProblems: data.problems.filter((problem) => isProblemOpen(problem.status)).length,
       byVehicleType: VEHICLE_TYPE_OPTIONS.reduce((acc, option) => {
         acc[option.value] = data.vehicles.filter(
           (vehicle) => normalizeVehicleType(vehicle.vehicleType || vehicle.tipo) === option.value,
@@ -52,16 +53,16 @@ export const Dashboard = () => {
     return {
       vehicle,
       problemCount: problems.length,
-      openProblems: problems.filter((problem) => problem.status === "aberto").length,
+      openProblems: problems.filter((problem) => isProblemOpen(problem.status)).length,
     };
   }).sort((a, b) => b.problemCount - a.problemCount);
 
   const today = new Date();
   const nextWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
-  const overdueRevisions = data.revisions.filter((revision) => new Date(revision.dataProxima) < today);
+  const overdueRevisions = data.revisions.filter((revision) => isRevisionActive(revision.status) && new Date(revision.dataProxima) < today);
   const upcomingRevisions = data.revisions.filter((revision) => {
     const nextDate = new Date(revision.dataProxima);
-    return nextDate >= today && nextDate <= nextWeek;
+    return isRevisionActive(revision.status) && nextDate >= today && nextDate <= nextWeek;
   });
 
   return (

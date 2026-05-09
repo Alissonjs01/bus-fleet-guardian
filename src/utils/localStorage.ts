@@ -6,6 +6,22 @@ const STORAGE_KEY = 'fleet-management-cache';
 
 export const normalizeRegistration = (value: string): string => value.trim().toUpperCase();
 
+const normalizeProblemStatus = (value: unknown) => {
+  const status = String(value || '').toLowerCase().trim();
+  if (['em_andamento', 'em andamento', 'in_progress'].includes(status)) return 'em_andamento';
+  if (['resolvida', 'resolvido', 'resolved'].includes(status)) return 'resolvida';
+  if (['cancelada', 'cancelado', 'canceled', 'cancelled'].includes(status)) return 'cancelada';
+  return 'aberta';
+};
+
+const normalizeRevisionStatus = (value: unknown) => {
+  const status = String(value || '').toLowerCase().trim();
+  if (['em_andamento', 'em andamento', 'in_progress'].includes(status)) return 'em_andamento';
+  if (['concluida', 'concluída', 'concluido', 'concluído', 'completed'].includes(status)) return 'concluida';
+  if (['cancelada', 'cancelado', 'canceled', 'cancelled'].includes(status)) return 'cancelada';
+  return 'agendada';
+};
+
 const normalizeFleetData = (data: FleetData): FleetData => ({
   vehicles: (data.vehicles || []).map((vehicle) => {
     const vehicleType = normalizeVehicleType(vehicle.vehicleType || vehicle.tipo);
@@ -27,8 +43,14 @@ const normalizeFleetData = (data: FleetData): FleetData => ({
     phone: driver.phone || driver.telefone,
     status: normalizeDriverStatus(driver.status),
   })),
-  problems: data.problems || [],
-  revisions: data.revisions || [],
+  problems: (data.problems || []).map((problem) => ({
+    ...problem,
+    status: normalizeProblemStatus(problem.status),
+  })),
+  revisions: (data.revisions || []).map((revision) => ({
+    ...revision,
+    status: normalizeRevisionStatus(revision.status),
+  })),
   trips: data.trips || [],
   routes: data.routes || [],
 });
@@ -117,7 +139,7 @@ export const getInitialFleetData = (): FleetData => ({
       categoria: "eletrica",
       gravidade: "alta",
       observacao: "Problema no sistema de ar condicionado",
-      status: "aberto",
+      status: "aberta",
       createdAt: "2024-07-25T14:30:00Z"
     },
     {
@@ -127,7 +149,7 @@ export const getInitialFleetData = (): FleetData => ({
       categoria: "mecanica",
       gravidade: "critica",
       observacao: "Freios fazendo ruido estranho",
-      status: "aberto",
+      status: "aberta",
       createdAt: "2024-07-26T10:15:00Z"
     },
     {
@@ -137,7 +159,7 @@ export const getInitialFleetData = (): FleetData => ({
       categoria: "funilaria",
       gravidade: "baixa",
       observacao: "Arranhao na lateral direita",
-      status: "resolvido",
+      status: "resolvida",
       createdAt: "2024-07-20T16:45:00Z",
       resolvedAt: "2024-07-22T09:00:00Z"
     }
@@ -147,6 +169,7 @@ export const getInitialFleetData = (): FleetData => ({
       id: 1,
       vehicleId: 1,
       tipo: "geral",
+      status: "concluida",
       dataRevisao: "2024-06-15",
       dataProxima: "2026-06-15",
       observacao: "Revisao completa realizada",
@@ -157,6 +180,7 @@ export const getInitialFleetData = (): FleetData => ({
       id: 2,
       vehicleId: 2,
       tipo: "mecanica",
+      status: "agendada",
       dataRevisao: "2024-05-20",
       dataProxima: "2026-05-20",
       observacao: "Troca de oleo e filtros",
@@ -167,6 +191,7 @@ export const getInitialFleetData = (): FleetData => ({
       id: 3,
       vehicleId: 3,
       tipo: "eletrica",
+      status: "agendada",
       dataRevisao: "2024-04-10",
       dataProxima: "2026-05-10",
       observacao: "Verificacao do sistema eletrico",

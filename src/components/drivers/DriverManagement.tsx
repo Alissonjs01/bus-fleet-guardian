@@ -11,7 +11,7 @@ import { DRIVER_STATUS_LABELS, DRIVER_STATUSES, normalizeDriverStatus } from "@/
 import { Users, Plus, Edit, Trash2, Phone, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useFleetData } from "@/hooks/useFleetData";
-import { deleteDriver, upsertDriver } from "@/services/fleetService";
+import { deleteDriver, isProblemOpen, upsertDriver } from "@/services/fleetService";
 
 export const DriverManagement = () => {
   const [data, setData] = useState<FleetData | null>(null);
@@ -141,37 +141,43 @@ export const DriverManagement = () => {
   const handleDelete = async (driver: Driver) => {
     if (!data || isSaving) return;
     
-    // Verificar se o motorista tem problemas ou viagens
     const hasProblems = data.problems.some(p => p.driverId === driver.id);
     const hasTrips = data.trips.some(t => t.driverId === driver.id);
+    const hasRoutes = data.routes.some(r => r.driverId === driver.id);
+    const hasHistory = hasProblems || hasTrips || hasRoutes;
     
-    if (hasProblems || hasTrips) {
-      toast({
-        title: "Erro",
-        description: "Não é possível excluir motorista com histórico de problemas ou viagens",
-        variant: "destructive"
-      });
+    if (hasHistory && !confirm(`O motorista ${driver.nome} possui historico vinculado. Para manter as ocorrencias e viagens, ele sera inativado em vez de apagado. Continuar?`)) {
       return;
     }
-    
-    if (confirm(`Tem certeza que deseja excluir o motorista ${driver.nome}?`)) {
+
+    if (!hasHistory && !confirm(`Tem certeza que deseja excluir o motorista ${driver.nome}?`)) {
+      return;
+    }
+
       setIsSaving(true);
       try {
-        await deleteDriver(driver);
+        if (hasHistory) {
+          await upsertDriver(companyId, {
+            ...driver,
+            status: DRIVER_STATUSES.INACTIVE,
+            updatedAt: new Date().toISOString(),
+          });
+        } else {
+          await deleteDriver(driver);
+        }
         toast({
           title: "Sucesso",
-          description: "Motorista excluído com sucesso"
+          description: hasHistory ? "Motorista inativado e historico mantido" : "Motorista excluido com sucesso"
         });
       } catch (error) {
         toast({
-          title: "Erro ao excluir",
-          description: error instanceof Error ? error.message : "Nao foi possivel excluir o motorista no Firestore",
+          title: "Erro ao remover",
+          description: error instanceof Error ? error.message : "Nao foi possivel atualizar o motorista no Firestore",
           variant: "destructive"
         });
       } finally {
         setIsSaving(false);
       }
-    }
   };
 
   if (loading || !data) {
@@ -290,9 +296,7 @@ export const DriverManagement = () => {
           <CardContent>
             <div className="space-y-3">
               {data.drivers.map((driver) => {
-                const activeProblems = data.problems.filter(p => 
-                  p.driverId === driver.id && p.status === 'aberto'
-                ).length;
+                const activeProblems = data.problems.filter(p => p.driverId === driver.id && isProblemOpen(p.status)).length;
                 
                 const totalProblems = data.problems.filter(p => p.driverId === driver.id).length;
 

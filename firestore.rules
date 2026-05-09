@@ -107,14 +107,27 @@ service cloud.firestore {
       allow create: if (
         signedIn() && sameCompany(request.resource.data.companyId) && userRole() in ['admin', 'gestor', 'motorista']
       ) || publicDemoCompany(request.resource.data.companyId);
-      allow update: if (signedIn() && sameCompany(resource.data.companyId) && userRole() in ['admin', 'gestor', 'motorista']) ||
-        (isManager() && publicDemoCompany(resource.data.companyId));
+      allow update: if (
+        signedIn() &&
+        sameCompany(resource.data.companyId) &&
+        sameCompany(request.resource.data.companyId) &&
+        userRole() in ['admin', 'gestor', 'motorista']
+      ) || (
+        isManager() &&
+        publicDemoCompany(resource.data.companyId) &&
+        publicDemoCompany(request.resource.data.companyId)
+      );
       allow delete: if isManager() && (sameCompany(resource.data.companyId) || publicDemoCompany(resource.data.companyId));
     }
 
     match /maintenance/{maintenanceId} {
       allow read: if sameCompany(resource.data.companyId) || publicDemoCompany(resource.data.companyId);
-      allow create, update, delete: if isManager() && (sameCompany(request.resource.data.companyId) || publicDemoCompany(request.resource.data.companyId));
+      allow create: if isManager() && (sameCompany(request.resource.data.companyId) || publicDemoCompany(request.resource.data.companyId));
+      allow update: if isManager() && (
+        (sameCompany(resource.data.companyId) && sameCompany(request.resource.data.companyId)) ||
+        (publicDemoCompany(resource.data.companyId) && publicDemoCompany(request.resource.data.companyId))
+      );
+      allow delete: if isManager() && (sameCompany(resource.data.companyId) || publicDemoCompany(resource.data.companyId));
     }
 
     match /trips/{tripId} {

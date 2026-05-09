@@ -6,20 +6,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Calendar, Download, FileText, BarChart3, TrendingUp, Filter } from "lucide-react";
 import { StatsCard } from "@/components/dashboard/StatsCard";
-import { getFleetData } from "@/utils/localStorage";
 import { format } from "date-fns";
 import type { BadgeProps } from "@/components/ui/badge";
+import { useFleetData } from "@/hooks/useFleetData";
+import { isProblemOpen } from "@/services/fleetService";
 
 export const Reports = () => {
   const [dateRange, setDateRange] = useState("last30");
   const [reportType, setReportType] = useState("all");
   const [vehicleFilter, setVehicleFilter] = useState("all");
   
-  const fleetData = getFleetData();
+  const { data: fleetData } = useFleetData();
   
   // Estatísticas dos relatórios
   const totalReports = fleetData.problems.length + fleetData.revisions.length;
-  const openProblems = fleetData.problems.filter(p => p.status === "aberto").length;
+  const openProblems = fleetData.problems.filter(p => isProblemOpen(p.status)).length;
   const completedRevisions = fleetData.revisions.length;
   const problemCategories = ['eletrica', 'mecanica', 'funilaria', 'limpeza', 'pneus', 'outros'];
   const monthlyTrend = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho'].map((mes, index) => ({

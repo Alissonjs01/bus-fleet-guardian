@@ -80,6 +80,30 @@ function normalizeDriver(id: string, data: DocumentData): Driver {
   };
 }
 
+export function normalizeProblemStatus(value: unknown): Problem["status"] {
+  const status = String(value || "").toLowerCase().trim();
+  if (["em_andamento", "em andamento", "andamento", "in_progress"].includes(status)) return "em_andamento";
+  if (["resolvida", "resolvido", "resolved"].includes(status)) return "resolvida";
+  if (["cancelada", "cancelado", "canceled", "cancelled"].includes(status)) return "cancelada";
+  return "aberta";
+}
+
+export function isProblemOpen(status: unknown) {
+  return ["aberta", "em_andamento"].includes(normalizeProblemStatus(status));
+}
+
+export function normalizeRevisionStatus(value: unknown): Revision["status"] {
+  const status = String(value || "").toLowerCase().trim();
+  if (["em_andamento", "em andamento", "andamento", "in_progress"].includes(status)) return "em_andamento";
+  if (["concluida", "concluída", "concluido", "concluído", "completed", "done"].includes(status)) return "concluida";
+  if (["cancelada", "cancelado", "canceled", "cancelled"].includes(status)) return "cancelada";
+  return "agendada";
+}
+
+export function isRevisionActive(status: unknown) {
+  return ["agendada", "em_andamento"].includes(normalizeRevisionStatus(status));
+}
+
 function normalizeProblem(id: string, data: DocumentData): Problem {
   return {
     id: Number(data.legacyId || data.id || 0),
@@ -90,7 +114,7 @@ function normalizeProblem(id: string, data: DocumentData): Problem {
     categoria: data.categoria || "outros",
     gravidade: data.gravidade || data.priority || "baixa",
     observacao: data.observacao || data.description || "",
-    status: data.status || "aberto",
+    status: normalizeProblemStatus(data.status),
     createdAt: toIso(data.createdAt),
     updatedAt: toIso(data.updatedAt),
     resolvedAt: data.resolvedAt ? toIso(data.resolvedAt) : undefined,
@@ -98,13 +122,15 @@ function normalizeProblem(id: string, data: DocumentData): Problem {
 }
 
 function normalizeRevision(id: string, data: DocumentData): Revision {
+  const status = normalizeRevisionStatus(data.status);
   return {
     id: Number(data.legacyId || data.id || 0),
     firestoreId: id,
     companyId: data.companyId,
     vehicleId: Number(data.vehicleId || 0),
     tipo: data.tipo || data.type || "geral",
-    dataRevisao: data.dataRevisao || toIso(data.completedAt),
+    status,
+    dataRevisao: data.dataRevisao || (data.completedAt ? toIso(data.completedAt) : ""),
     dataProxima: data.dataProxima || toIso(data.scheduledAt),
     observacao: data.observacao || data.description,
     responsavel: data.responsavel,
@@ -199,6 +225,7 @@ function serializeRecord(companyId: string, collectionName: FleetCollectionName,
     const problem = record as Problem;
     return withoutUndefined({
       ...base,
+      status: normalizeProblemStatus(problem.status),
       title: problem.observacao.slice(0, 80),
       description: problem.observacao,
       priority: problem.gravidade,
@@ -207,13 +234,14 @@ function serializeRecord(companyId: string, collectionName: FleetCollectionName,
 
   if (collectionName === "maintenance") {
     const revision = record as Revision;
+    const status = normalizeRevisionStatus(revision.status);
     return withoutUndefined({
       ...base,
       type: revision.tipo,
       description: revision.observacao || "",
-      status: "scheduled",
+      status,
       scheduledAt: revision.dataProxima,
-      completedAt: revision.dataRevisao,
+      completedAt: status === "concluida" ? revision.dataRevisao : undefined,
     });
   }
 
@@ -338,6 +366,7 @@ export async function seedInitialFleetData(companyId: string) {
       title: problem.observacao.slice(0, 80),
       description: problem.observacao,
       priority: problem.gravidade,
+      status: normalizeProblemStatus(problem.status),
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
@@ -351,9 +380,9 @@ export async function seedInitialFleetData(companyId: string) {
       companyId,
       type: revision.tipo,
       description: revision.observacao || "",
-      status: "scheduled",
+      status: normalizeRevisionStatus(revision.status),
       scheduledAt: revision.dataProxima,
-      completedAt: revision.dataRevisao,
+      completedAt: normalizeRevisionStatus(revision.status) === "concluida" ? revision.dataRevisao : null,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
@@ -470,6 +499,7 @@ export async function updateProblem(companyId: string, problem: Problem) {
   const payload = withoutUndefined(withCompany(companyId, {
     ...problem,
     legacyId: problem.id,
+    status: normalizeProblemStatus(problem.status),
     title: problem.observacao.slice(0, 80),
     description: problem.observacao,
     priority: problem.gravidade,
@@ -486,6 +516,36 @@ export async function updateProblem(companyId: string, problem: Problem) {
     createdAt: serverTimestamp(),
   });
   return ref.id;
+}
+
+export async function upsertRevision(companyId: string, revision: Revision) {
+  const status = normalizeRevisionStatus(revision.status);
+  const payload = withoutUndefined(withCompany(companyId, {
+    ...revision,
+    legacyId: revision.id,
+    status,
+    type: revision.tipo,
+    description: revision.observacao || "",
+    scheduledAt: revision.dataProxima,
+    completedAt: status === "concluida" ? (revision.dataRevisao || new Date().toISOString()) : null,
+    createdAt: revision.createdAt || new Date().toISOString(),
+  }));
+
+  if (revision.firestoreId) {
+    await updateDoc(doc(db, "maintenance", revision.firestoreId), payload);
+    return revision.firestoreId;
+  }
+
+  const ref = await addDoc(collection(db, "maintenance"), {
+    ...payload,
+    createdAt: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+export async function deleteRevision(revision: Revision) {
+  if (!revision.firestoreId) return;
+  await deleteDoc(doc(db, "maintenance", revision.firestoreId));
 }
 
 export async function createTrip(companyId: string, trip: Omit<Trip, "id" | "createdAt">) {

@@ -1,98 +1,96 @@
-import { useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Problem, FleetData } from "@/types/fleet";
-import { getFleetData, saveFleetData } from "@/utils/localStorage";
-import { AlertTriangle, CheckCircle, Clock, User, Car } from "lucide-react";
+import { Problem } from "@/types/fleet";
+import { AlertTriangle, CheckCircle, Clock, User, Car, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatDateTime } from "@/utils/dateFormat";
+import { useFleetData } from "@/hooks/useFleetData";
+import { isProblemOpen, normalizeProblemStatus, updateProblem } from "@/services/fleetService";
+
+const PROBLEM_STATUS_LABELS: Record<Problem["status"], string> = {
+  aberta: "Aberta",
+  em_andamento: "Em andamento",
+  resolvida: "Resolvida",
+  cancelada: "Cancelada",
+};
 
 export const ProblemManagement = () => {
-  const [data, setData] = useState<FleetData | null>(null);
   const [filter, setFilter] = useState({
-    status: 'todos',
-    categoria: 'todas',
-    gravidade: 'todas'
+    status: "todos",
+    categoria: "todas",
+    gravidade: "todas",
   });
+  const [selectedProblemId, setSelectedProblemId] = useState<string | number | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
+  const { data, loading, companyId, syncStatus } = useFleetData();
 
-  useEffect(() => {
-    const fleetData = getFleetData();
-    setData(fleetData);
-  }, []);
+  const handleStatusChange = async (problem: Problem, status: Problem["status"]) => {
+    if (isSaving) return;
+    setIsSaving(true);
 
-  const handleResolve = (problem: Problem) => {
-    if (!data) return;
-
-    const newData = { ...data };
-    const index = newData.problems.findIndex(p => p.id === problem.id);
-    
-    if (index !== -1) {
-      newData.problems[index] = {
+    try {
+      const resolvedAt = status === "resolvida" ? new Date().toISOString() : problem.resolvedAt;
+      await updateProblem(companyId, {
         ...problem,
-        status: 'resolvido',
-        resolvedAt: new Date().toISOString()
-      };
-      
-      saveFleetData(newData);
-      setData(newData);
-      
+        status,
+        resolvedAt,
+        updatedAt: new Date().toISOString(),
+      });
+
       toast({
         title: "Sucesso",
-        description: "Problema marcado como resolvido"
+        description: status === "resolvida" ? "Ocorrencia marcada como resolvida" : "Status da ocorrencia atualizado",
       });
+    } catch (error) {
+      toast({
+        title: "Erro ao salvar",
+        description: error instanceof Error ? error.message : "Nao foi possivel atualizar a ocorrencia no Firestore",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  const getGravidadeVariant = (gravidade: Problem['gravidade']) => {
+  const getGravidadeVariant = (gravidade: Problem["gravidade"]) => {
     switch (gravidade) {
-      case 'baixa': return 'secondary';
-      case 'alta': return 'destructive';
-      case 'critica': return 'destructive';
-      case 'media': return 'default';
+      case "baixa": return "secondary";
+      case "alta": return "destructive";
+      case "critica": return "destructive";
+      case "media": return "default";
     }
   };
 
-  const getGravidadeClassName = (gravidade: Problem['gravidade']) => gravidade === 'media'
-    ? 'bg-warning text-warning-foreground hover:bg-warning/80'
-    : '';
+  const getGravidadeClassName = (gravidade: Problem["gravidade"]) => gravidade === "media"
+    ? "bg-warning text-warning-foreground hover:bg-warning/80"
+    : "";
 
-  const getCategoriaIcon = (categoria: Problem['categoria']) => {
-    return <AlertTriangle className="h-4 w-4" />;
-  };
+  const filteredProblems = useMemo(() => {
+    return data.problems
+      .filter((problem) => filter.status === "todos" || normalizeProblemStatus(problem.status) === filter.status)
+      .filter((problem) => filter.categoria === "todas" || problem.categoria === filter.categoria)
+      .filter((problem) => filter.gravidade === "todas" || problem.gravidade === filter.gravidade)
+      .sort((a, b) => {
+        const aOpen = isProblemOpen(a.status);
+        const bOpen = isProblemOpen(b.status);
+        if (aOpen !== bOpen) return aOpen ? -1 : 1;
 
-  if (!data) {
+        const gravityOrder = { critica: 4, alta: 3, media: 2, baixa: 1 };
+        if (gravityOrder[a.gravidade] !== gravityOrder[b.gravidade]) {
+          return gravityOrder[b.gravidade] - gravityOrder[a.gravidade];
+        }
+
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+  }, [data.problems, filter]);
+
+  if (loading) {
     return <div>Carregando...</div>;
   }
-
-  // Filtrar problemas
-  let filteredProblems = data.problems;
-
-  if (filter.status !== 'todos') {
-    filteredProblems = filteredProblems.filter(p => p.status === filter.status);
-  }
-
-  if (filter.categoria !== 'todas') {
-    filteredProblems = filteredProblems.filter(p => p.categoria === filter.categoria);
-  }
-
-  if (filter.gravidade !== 'todas') {
-    filteredProblems = filteredProblems.filter(p => p.gravidade === filter.gravidade);
-  }
-
-  // Ordenar por data (mais recentes primeiro) e depois por gravidade
-  filteredProblems = filteredProblems.sort((a, b) => {
-    if (a.status !== b.status) {
-      return a.status === 'aberto' ? -1 : 1;
-    }
-    const gravityOrder = { 'critica': 4, 'alta': 3, 'media': 2, 'baixa': 1 };
-    if (gravityOrder[a.gravidade] !== gravityOrder[b.gravidade]) {
-      return gravityOrder[b.gravidade] - gravityOrder[a.gravidade];
-    }
-    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-  });
 
   return (
     <div className="space-y-6">
@@ -103,7 +101,6 @@ export const ProblemManagement = () => {
         </p>
       </div>
 
-      {/* Filtros */}
       <Card>
         <CardHeader>
           <CardTitle>Filtros</CardTitle>
@@ -112,32 +109,30 @@ export const ProblemManagement = () => {
           <div className="grid gap-4 md:grid-cols-3">
             <div>
               <label className="text-sm font-medium">Status</label>
-              <Select value={filter.status} onValueChange={(value) => 
-                setFilter({ ...filter, status: value })
-              }>
+              <Select value={filter.status} onValueChange={(value) => setFilter({ ...filter, status: value })}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="todos">Todos</SelectItem>
-                  <SelectItem value="aberto">Abertos</SelectItem>
-                  <SelectItem value="resolvido">Resolvidos</SelectItem>
+                  <SelectItem value="aberta">Abertas</SelectItem>
+                  <SelectItem value="em_andamento">Em andamento</SelectItem>
+                  <SelectItem value="resolvida">Resolvidas</SelectItem>
+                  <SelectItem value="cancelada">Canceladas</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div>
               <label className="text-sm font-medium">Categoria</label>
-              <Select value={filter.categoria} onValueChange={(value) => 
-                setFilter({ ...filter, categoria: value })
-              }>
+              <Select value={filter.categoria} onValueChange={(value) => setFilter({ ...filter, categoria: value })}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="todas">Todas</SelectItem>
-                  <SelectItem value="eletrica">Elétrica</SelectItem>
-                  <SelectItem value="mecanica">Mecânica</SelectItem>
+                  <SelectItem value="eletrica">Eletrica</SelectItem>
+                  <SelectItem value="mecanica">Mecanica</SelectItem>
                   <SelectItem value="funilaria">Funilaria</SelectItem>
                   <SelectItem value="limpeza">Limpeza</SelectItem>
                   <SelectItem value="pneus">Pneus</SelectItem>
@@ -148,17 +143,15 @@ export const ProblemManagement = () => {
 
             <div>
               <label className="text-sm font-medium">Gravidade</label>
-              <Select value={filter.gravidade} onValueChange={(value) => 
-                setFilter({ ...filter, gravidade: value })
-              }>
+              <Select value={filter.gravidade} onValueChange={(value) => setFilter({ ...filter, gravidade: value })}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="todas">Todas</SelectItem>
-                  <SelectItem value="critica">Crítica</SelectItem>
+                  <SelectItem value="critica">Critica</SelectItem>
                   <SelectItem value="alta">Alta</SelectItem>
-                  <SelectItem value="media">Média</SelectItem>
+                  <SelectItem value="media">Media</SelectItem>
                   <SelectItem value="baixa">Baixa</SelectItem>
                 </SelectContent>
               </Select>
@@ -167,7 +160,6 @@ export const ProblemManagement = () => {
         </CardContent>
       </Card>
 
-      {/* Lista de Problemas */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -178,25 +170,26 @@ export const ProblemManagement = () => {
         <CardContent>
           <div className="space-y-4">
             {filteredProblems.map((problem) => {
-              const vehicle = data.vehicles.find(v => v.id === problem.vehicleId);
-              const driver = data.drivers.find(d => d.id === problem.driverId);
+              const status = normalizeProblemStatus(problem.status);
+              const vehicle = data.vehicles.find((item) => item.id === problem.vehicleId);
+              const driver = data.drivers.find((item) => item.id === problem.driverId);
+              const selectedKey = problem.firestoreId || problem.id;
+              const isSelected = selectedProblemId === selectedKey;
 
               return (
-                <div key={problem.id} className={`p-4 border rounded-lg ${
-                  problem.status === 'aberto' ? 'border-l-4 border-l-destructive' : 'border-l-4 border-l-success'
+                <div key={selectedKey} className={`p-4 border rounded-lg ${
+                  isProblemOpen(status) ? "border-l-4 border-l-destructive" : "border-l-4 border-l-success"
                 }`}>
-                  <div className="flex items-start justify-between">
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        {getCategoriaIcon(problem.categoria)}
+                      <div className="flex flex-wrap items-center gap-2 mb-2">
+                        <AlertTriangle className="h-4 w-4" />
                         <Badge variant={getGravidadeVariant(problem.gravidade)} className={getGravidadeClassName(problem.gravidade)}>
                           {problem.gravidade.toUpperCase()}
                         </Badge>
-                        <Badge variant="outline">
-                          {problem.categoria}
-                        </Badge>
-                        <Badge variant={problem.status === 'aberto' ? 'destructive' : 'secondary'}>
-                          {problem.status === 'aberto' ? 'Aberto' : 'Resolvido'}
+                        <Badge variant="outline">{problem.categoria}</Badge>
+                        <Badge variant={isProblemOpen(status) ? "destructive" : "secondary"}>
+                          {PROBLEM_STATUS_LABELS[status]}
                         </Badge>
                       </div>
 
@@ -205,11 +198,11 @@ export const ProblemManagement = () => {
                       <div className="grid gap-2 md:grid-cols-2 text-sm text-muted-foreground">
                         <div className="flex items-center gap-1">
                           <Car className="h-3 w-3" />
-                          Veículo: {vehicle?.numeroRegistro || 'Não encontrado'}
+                          Veiculo: {vehicle?.numeroRegistro || "Nao encontrado"}
                         </div>
                         <div className="flex items-center gap-1">
                           <User className="h-3 w-3" />
-                          Motorista: {driver?.nome || 'Não encontrado'}
+                          Motorista: {driver?.nome || "Nao encontrado"}
                         </div>
                         <div className="flex items-center gap-1">
                           <Clock className="h-3 w-3" />
@@ -222,19 +215,48 @@ export const ProblemManagement = () => {
                           </div>
                         )}
                       </div>
+
+                      {isSelected && (
+                        <div className="mt-3 rounded border bg-muted/40 p-3 text-sm text-muted-foreground">
+                          <div>Status atual: {PROBLEM_STATUS_LABELS[status]}</div>
+                          <div>ID Firestore: {problem.firestoreId || "pendente"}</div>
+                          <div>Empresa: {problem.companyId || companyId}</div>
+                          <div>Sincronizacao: {syncStatus}</div>
+                        </div>
+                      )}
                     </div>
 
-                    {problem.status === 'aberto' && (
+                    <div className="flex flex-wrap gap-2 lg:justify-end">
+                      <Select
+                        value={status}
+                        onValueChange={(value: Problem["status"]) => handleStatusChange(problem, value)}
+                        disabled={isSaving}
+                      >
+                        <SelectTrigger className="w-44">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="aberta">Aberta</SelectItem>
+                          <SelectItem value="em_andamento">Em andamento</SelectItem>
+                          <SelectItem value="resolvida">Resolvida</SelectItem>
+                          <SelectItem value="cancelada">Cancelada</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {status !== "resolvida" && (
+                        <Button size="sm" variant="outline" onClick={() => handleStatusChange(problem, "resolvida")} disabled={isSaving}>
+                          <CheckCircle className="h-4 w-4 mr-1" />
+                          Resolver
+                        </Button>
+                      )}
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => handleResolve(problem)}
-                        className="ml-4"
+                        onClick={() => setSelectedProblemId(isSelected ? null : selectedKey)}
                       >
-                        <CheckCircle className="h-4 w-4 mr-1" />
-                        Resolver
+                        <Eye className="h-4 w-4 mr-1" />
+                        Detalhes
                       </Button>
-                    )}
+                    </div>
                   </div>
                 </div>
               );
@@ -242,34 +264,24 @@ export const ProblemManagement = () => {
 
             {filteredProblems.length === 0 && (
               <div className="text-center text-muted-foreground py-8">
-                {filter.status === 'todos' 
-                  ? "Nenhum problema encontrado" 
-                  : `Nenhum problema ${filter.status} encontrado`
-                }
+                {filter.status === "todos" ? "Nenhum problema encontrado" : `Nenhum problema ${filter.status} encontrado`}
               </div>
             )}
           </div>
         </CardContent>
       </Card>
 
-      {/* Informação sobre recebimento de dados */}
       <Card>
         <CardHeader>
-          <CardTitle>📱 Integração com App do Motorista</CardTitle>
+          <CardTitle>Integracao com App do Motorista</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="text-sm text-muted-foreground space-y-2">
             <p>
-              <strong>Como os problemas chegam:</strong> Os motoristas relatam problemas pelo app 
-              do celular que envia os dados via POST /retorno para o servidor local.
+              <strong>Origem dos dados:</strong> as ocorrencias agora sao lidas e atualizadas em tempo real pela collection /issues no Firestore.
             </p>
             <p>
-              <strong>Dados recebidos:</strong> categoria, gravidade, observação, número do motorista, 
-              número do veículo, data/hora.
-            </p>
-            <p>
-              <strong>Implementação atual:</strong> Dados simulados no localStorage. 
-              Migrar para servidor Node.js + dados.json.
+              <strong>Vinculos:</strong> cada ocorrencia fica ligada ao motorista, ao veiculo e ao companyId para manter o historico da frota.
             </p>
           </div>
         </CardContent>

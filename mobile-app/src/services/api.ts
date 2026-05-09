@@ -223,7 +223,7 @@ class MobileAPIService {
         title: problem.observacao.slice(0, 80),
         description: problem.observacao,
         priority: problem.gravidade,
-        status: "aberto",
+        status: "aberta",
         createdAt: problem.reportedAt || now,
         updatedAt: serverTimestamp(),
       });
@@ -262,7 +262,7 @@ class MobileAPIService {
       title: problem.observacao.slice(0, 80),
       description: problem.observacao,
       priority: problem.gravidade,
-      status: "aberto",
+      status: "aberta",
       createdAt: now,
       updatedAt: serverTimestamp(),
     });

@@ -11,7 +11,7 @@ import { VEHICLE_TYPES, VEHICLE_TYPE_OPTIONS, getVehicleTypeIcon, getVehicleType
 import { Car, Plus, Edit, Trash2, Activity, Wrench, Home } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useFleetData } from "@/hooks/useFleetData";
-import { deleteVehicle, upsertVehicle } from "@/services/fleetService";
+import { deleteVehicle, isProblemOpen, upsertVehicle } from "@/services/fleetService";
 
 export const VehicleManagement = () => {
   const [data, setData] = useState<FleetData | null>(null);
@@ -270,9 +270,7 @@ export const VehicleManagement = () => {
           <CardContent>
             <div className="space-y-3">
               {filteredVehicles.map((vehicle) => {
-                const problems = data.problems.filter((problem) =>
-                  problem.vehicleId === vehicle.id && problem.status === "aberto"
-                ).length;
+                const problems = data.problems.filter((problem) => problem.vehicleId === vehicle.id && isProblemOpen(problem.status)).length;
 
                 return (
                   <div key={vehicle.id} className="flex items-center justify-between p-4 border rounded-lg">
