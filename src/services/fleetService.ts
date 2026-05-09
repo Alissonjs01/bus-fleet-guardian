@@ -363,14 +363,14 @@ export async function seedInitialFleetData(companyId: string) {
 }
 
 export async function upsertVehicle(companyId: string, vehicle: Vehicle) {
-  const payload = withCompany(companyId, {
+  const payload = withoutUndefined(withCompany(companyId, {
     ...vehicle,
     legacyId: vehicle.id,
     plate: vehicle.numeroRegistro,
     tipo: normalizeVehicleType(vehicle.vehicleType || vehicle.tipo),
     vehicleType: normalizeVehicleType(vehicle.vehicleType || vehicle.tipo),
     createdAt: vehicle.createdAt || new Date().toISOString(),
-  });
+  }));
 
   if (vehicle.firestoreId) {
     await updateDoc(doc(db, "vehicles", vehicle.firestoreId), payload);
@@ -390,7 +390,7 @@ export async function deleteVehicle(vehicle: Vehicle) {
 }
 
 export async function upsertDriver(companyId: string, driver: Driver) {
-  const payload = withCompany(companyId, {
+  const payload = withoutUndefined(withCompany(companyId, {
     ...driver,
     legacyId: driver.id,
     name: driver.name || driver.nome,
@@ -404,7 +404,7 @@ export async function upsertDriver(companyId: string, driver: Driver) {
     userId: driver.userId || null,
     status: normalizeDriverStatus(driver.status),
     createdAt: driver.createdAt || new Date().toISOString(),
-  });
+  }));
 
   if (driver.firestoreId) {
     await updateDoc(doc(db, "drivers", driver.firestoreId), payload);
@@ -424,14 +424,14 @@ export async function deleteDriver(driver: Driver) {
 }
 
 export async function updateProblem(companyId: string, problem: Problem) {
-  const payload = withCompany(companyId, {
+  const payload = withoutUndefined(withCompany(companyId, {
     ...problem,
     legacyId: problem.id,
     title: problem.observacao.slice(0, 80),
     description: problem.observacao,
     priority: problem.gravidade,
     createdAt: problem.createdAt || new Date().toISOString(),
-  });
+  }));
 
   if (problem.firestoreId) {
     await updateDoc(doc(db, "issues", problem.firestoreId), payload);
