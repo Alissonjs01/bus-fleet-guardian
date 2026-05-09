@@ -1,9 +1,12 @@
+import { collection, doc, getDocs, query, serverTimestamp, where, writeBatch } from "firebase/firestore";
+import { db } from "@/integrations/firebase/client";
 import { getFleetData, normalizeRegistration, saveFleetData } from "@/utils/localStorage";
 import { ProblemReport, APIResponse, TripHistory } from "../types/mobile";
 import { DRIVER_STATUSES, type DriverStatus } from "@/constants/driverStatus";
 import { getDriverByRegistration } from "@/services/driverService";
 
 type FleetSnapshot = ReturnType<typeof getFleetData>;
+const MOBILE_COMPANY_ID = "demo-company";
 
 class MobileAPIService {
   private findDriver(data: FleetSnapshot, driverNumber: string) {
@@ -44,8 +47,23 @@ class MobileAPIService {
   async registrarSaida(vehicleNumber: string, driverNumber: string): Promise<APIResponse> {
     const data = getFleetData();
     const normalizedVehicleNumber = normalizeRegistration(vehicleNumber);
-    const vehicle = data.vehicles.find((item) => item.numeroRegistro === normalizedVehicleNumber);
-    const driver = this.findDriver(data, driverNumber);
+    const driver = await getDriverByRegistration(driverNumber, MOBILE_COMPANY_ID);
+    const vehicleSnapshot = await getDocs(query(
+      collection(db, "vehicles"),
+      where("companyId", "==", MOBILE_COMPANY_ID),
+      where("numeroRegistro", "==", normalizedVehicleNumber),
+    ));
+    const fallbackVehicleSnapshot = vehicleSnapshot.empty
+      ? await getDocs(query(
+        collection(db, "vehicles"),
+        where("companyId", "==", MOBILE_COMPANY_ID),
+        where("plate", "==", normalizedVehicleNumber),
+      ))
+      : vehicleSnapshot;
+    const vehicleDoc = fallbackVehicleSnapshot.docs[0];
+    const vehicle = vehicleDoc
+      ? { ...vehicleDoc.data(), firestoreId: vehicleDoc.id }
+      : data.vehicles.find((item) => item.numeroRegistro === normalizedVehicleNumber);
 
     if (!vehicle) {
       return { success: false, message: "Veiculo nao encontrado" };
@@ -71,26 +89,53 @@ class MobileAPIService {
       return { success: false, message: "Veiculo indisponivel para iniciar rota." };
     }
 
-    vehicle.status = "operacao";
-    driver.status = DRIVER_STATUSES.ON_ROUTE;
-    data.routes.push({
-      id: Math.max(0, ...data.routes.map((route) => route.id)) + 1,
-      vehicleId: vehicle.id,
+    const now = new Date().toISOString();
+    const batch = writeBatch(db);
+    const vehicleId = Number(vehicle.legacyId || vehicle.id || 0);
+
+    if (vehicleDoc) {
+      batch.update(doc(db, "vehicles", vehicleDoc.id), {
+        status: "operacao",
+        updatedAt: serverTimestamp(),
+      });
+    }
+
+    if (driver.firestoreId) {
+      batch.update(doc(db, "drivers", driver.firestoreId), {
+        status: DRIVER_STATUSES.ON_ROUTE,
+        updatedAt: serverTimestamp(),
+      });
+    }
+
+    const routeRef = doc(collection(db, "routes"));
+    batch.set(routeRef, {
+      companyId: MOBILE_COMPANY_ID,
+      legacyId: Date.now(),
+      vehicleId,
       driverId: driver.id,
-      driverUserId: driver.userId,
+      driverUserId: driver.userId || null,
       status: "active",
-      startedAt: new Date().toISOString(),
-      createdAt: new Date().toISOString(),
+      startedAt: now,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
     });
-    data.trips.push({
-      id: Math.max(0, ...data.trips.map((trip) => trip.id)) + 1,
-      vehicleId: vehicle.id,
+
+    const tripRef = doc(collection(db, "trips"));
+    batch.set(tripRef, {
+      companyId: MOBILE_COMPANY_ID,
+      legacyId: Date.now() + 1,
+      vehicleId,
       driverId: driver.id,
-      saida: new Date().toISOString(),
+      saida: now,
+      startTime: now,
+      retorno: null,
+      endTime: null,
       problemas: [],
-      createdAt: new Date().toISOString(),
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
     });
-    saveFleetData(data);
+
+    await batch.commit();
 
     return { success: true, message: "Saida registrada com sucesso" };
   }
