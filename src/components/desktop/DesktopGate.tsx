@@ -114,9 +114,6 @@ export function DesktopGate({ onRealLogin }: DesktopGateProps) {
                   disabled={isSaving}
                   autoComplete="off"
                 />
-                <p className="text-xs text-muted-foreground">
-                  Use apenas letras, numeros, underline, hifen, ponto e arroba.
-                </p>
               </div>
 
               <Button type="submit" className="w-full" size="lg" disabled={isSaving}>
