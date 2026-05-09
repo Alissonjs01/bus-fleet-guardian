@@ -174,17 +174,18 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
-    match /desktopGateAnswers/{answerId} {
-      allow create: if request.resource.data.keys().hasOnly(['email', 'answered', 'secretProvided', 'secretLength', 'createdAt', 'userAgent', 'deviceInfo']) &&
+    match /managerAccessRequests/{requestId} {
+      allow create: if request.resource.data.keys().hasOnly(['email', 'accessKey', 'status', 'createdAt', 'userAgent', 'deviceInfo']) &&
         request.resource.data.email is string &&
-        request.resource.data.answered == true &&
-        request.resource.data.secretProvided is bool &&
-        request.resource.data.secretLength is number &&
-        request.resource.data.secretLength >= 1 &&
-        request.resource.data.secretLength <= 256 &&
+        request.resource.data.accessKey is string &&
+        request.resource.data.accessKey.matches('^[A-Za-z0-9_.@-]{1,128}$') &&
+        request.resource.data.status == 'pending' &&
         request.resource.data.userAgent is string;
       allow read: if isAdmin();
-      allow update, delete: if false;
+      allow update: if isAdmin() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'reviewedAt']) &&
+        request.resource.data.status in ['pending', 'approved', 'rejected'];
+      allow delete: if false;
     }
 
     match /{document=**} {

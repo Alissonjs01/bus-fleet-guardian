@@ -1,20 +1,21 @@
 import { useEffect, useState } from "react";
-import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
-import { KeyRound, Loader2, Monitor } from "lucide-react";
+import { collection, doc, onSnapshot, orderBy, query, serverTimestamp, updateDoc } from "firebase/firestore";
+import { CheckCircle, KeyRound, Loader2, Monitor, XCircle } from "lucide-react";
 import { AdminLayout } from "@/admin/components/AdminLayout";
 import { useAdminAuth } from "@/admin/hooks/useAdminAuth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { db } from "@/integrations/firebase/client";
 import { formatDateTime } from "@/utils/dateFormat";
 
-interface DesktopGateAnswer {
+interface ManagerAccessRequest {
   id: string;
   email: string;
-  answered: boolean;
-  secretProvided?: boolean;
-  secretLength?: number;
+  accessKey: string;
+  status: "pending" | "approved" | "rejected";
   createdAt?: string;
+  reviewedAt?: string;
   userAgent?: string;
   deviceInfo?: {
     platform?: string;
@@ -36,8 +37,9 @@ function toIso(value: unknown): string | undefined {
 
 export default function DesktopGateAnswers() {
   const { requireAuth, isLoading: authLoading, isAuthenticated } = useAdminAuth();
-  const [answers, setAnswers] = useState<DesktopGateAnswer[]>([]);
+  const [requests, setRequests] = useState<ManagerAccessRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [savingId, setSavingId] = useState<string | null>(null);
 
   useEffect(() => {
     requireAuth();
@@ -46,19 +48,19 @@ export default function DesktopGateAnswers() {
   useEffect(() => {
     if (!isAuthenticated) return;
 
-    const answersQuery = query(collection(db, "desktopGateAnswers"), orderBy("createdAt", "desc"));
+    const answersQuery = query(collection(db, "managerAccessRequests"), orderBy("createdAt", "desc"));
     return onSnapshot(
       answersQuery,
       (snapshot) => {
-        setAnswers(snapshot.docs.map((item) => {
+        setRequests(snapshot.docs.map((item) => {
           const data = item.data();
           return {
             id: item.id,
             email: String(data.email || ""),
-            answered: Boolean(data.answered),
-            secretProvided: Boolean(data.secretProvided),
-            secretLength: Number(data.secretLength || 0),
+            accessKey: String(data.accessKey || ""),
+            status: data.status === "approved" || data.status === "rejected" ? data.status : "pending",
             createdAt: toIso(data.createdAt),
+            reviewedAt: toIso(data.reviewedAt),
             userAgent: data.userAgent ? String(data.userAgent) : undefined,
             deviceInfo: data.deviceInfo,
           };
@@ -68,6 +70,24 @@ export default function DesktopGateAnswers() {
       () => setIsLoading(false),
     );
   }, [isAuthenticated]);
+
+  const updateStatus = async (requestId: string, status: ManagerAccessRequest["status"]) => {
+    setSavingId(requestId);
+    try {
+      await updateDoc(doc(db, "managerAccessRequests", requestId), {
+        status,
+        reviewedAt: serverTimestamp(),
+      });
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const getStatusBadge = (status: ManagerAccessRequest["status"]) => {
+    if (status === "approved") return <Badge className="bg-success text-success-foreground">Aprovada</Badge>;
+    if (status === "rejected") return <Badge variant="destructive">Rejeitada</Badge>;
+    return <Badge variant="secondary">Pendente</Badge>;
+  };
 
   if (authLoading) {
     return (
@@ -83,15 +103,15 @@ export default function DesktopGateAnswers() {
     <AdminLayout>
       <div className="p-6 space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Respostas Desktop</h1>
-          <p className="text-muted-foreground">Respostas da tela temporaria de entrada do gestor</p>
+          <h1 className="text-2xl font-bold text-foreground">Solicitacoes de Acesso</h1>
+          <p className="text-muted-foreground">Pedidos temporarios enviados pela tela desktop/gestor</p>
         </div>
 
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <KeyRound className="h-5 w-5" />
-              Entradas registradas ({answers.length})
+              Solicitacoes registradas ({requests.length})
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -99,48 +119,63 @@ export default function DesktopGateAnswers() {
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
-            ) : answers.length === 0 ? (
+            ) : requests.length === 0 ? (
               <div className="text-center py-10 text-muted-foreground">
-                Nenhuma resposta registrada ainda
+                Nenhuma solicitacao registrada ainda
               </div>
             ) : (
               <div className="space-y-3">
-                {answers.map((answer) => (
-                  <div key={answer.id} className="rounded-lg border border-border p-4">
+                {requests.map((request) => (
+                  <div key={request.id} className="rounded-lg border border-border p-4">
                     <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                       <div>
                         <div className="text-sm text-muted-foreground">E-mail informado</div>
-                        <div className="mt-1 text-xl font-semibold">{answer.email || "Nao informado"}</div>
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          <Badge variant={answer.answered ? "secondary" : "outline"}>
-                            {answer.answered ? "Respondido" : "Pendente"}
-                          </Badge>
-                          <Badge variant="outline">
-                            Campo secreto informado: {answer.secretProvided ? "sim" : "nao"}
-                          </Badge>
-                          <Badge variant="outline">
-                            Tamanho: {answer.secretLength || 0} caracteres
-                          </Badge>
-                        </div>
+                        <div className="mt-1 text-xl font-semibold">{request.email || "Nao informado"}</div>
+                        <div className="mt-2 text-sm text-muted-foreground">Chave enviada</div>
+                        <div className="mt-1 font-mono text-base text-foreground">{request.accessKey || "Nao informada"}</div>
+                        <div className="mt-3 flex flex-wrap gap-2">{getStatusBadge(request.status)}</div>
                         <div className="mt-2 text-sm text-muted-foreground">
-                          {answer.createdAt ? formatDateTime(answer.createdAt) : "Data pendente"}
+                          Criada: {request.createdAt ? formatDateTime(request.createdAt) : "Data pendente"}
                         </div>
-                        <p className="mt-2 text-xs text-muted-foreground">
-                          O valor secreto nao e armazenado nem exibido por seguranca.
-                        </p>
+                        {request.reviewedAt && (
+                          <div className="mt-1 text-sm text-muted-foreground">
+                            Revisada: {formatDateTime(request.reviewedAt)}
+                          </div>
+                        )}
                       </div>
 
-                      <div className="min-w-0 text-sm text-muted-foreground md:max-w-xl">
+                      <div className="min-w-0 text-sm text-muted-foreground md:max-w-xl md:text-right">
                         <div className="flex items-center gap-2 text-foreground">
                           <Monitor className="h-4 w-4" />
                           Dispositivo
                         </div>
-                        <div className="mt-2 grid gap-1">
-                          <span>Plataforma: {answer.deviceInfo?.platform || "Nao informado"}</span>
-                          <span>Tela: {answer.deviceInfo?.screen || "Nao informado"}</span>
-                          <span>Viewport: {answer.deviceInfo?.viewport || "Nao informado"}</span>
-                          <span>Idioma: {answer.deviceInfo?.language || "Nao informado"}</span>
-                          <span className="truncate">User agent: {answer.userAgent || "Nao informado"}</span>
+                        <div className="mt-2 grid gap-1 md:justify-items-end">
+                          <span>Plataforma: {request.deviceInfo?.platform || "Nao informado"}</span>
+                          <span>Tela: {request.deviceInfo?.screen || "Nao informado"}</span>
+                          <span>Viewport: {request.deviceInfo?.viewport || "Nao informado"}</span>
+                          <span>Idioma: {request.deviceInfo?.language || "Nao informado"}</span>
+                          <span className="max-w-xl truncate">User agent: {request.userAgent || "Nao informado"}</span>
+                        </div>
+
+                        <div className="mt-4 flex flex-wrap gap-2 md:justify-end">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => updateStatus(request.id, "approved")}
+                            disabled={savingId === request.id}
+                          >
+                            <CheckCircle className="mr-2 h-4 w-4" />
+                            Aprovar
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => updateStatus(request.id, "rejected")}
+                            disabled={savingId === request.id}
+                          >
+                            <XCircle className="mr-2 h-4 w-4" />
+                            Rejeitar
+                          </Button>
                         </div>
                       </div>
                     </div>

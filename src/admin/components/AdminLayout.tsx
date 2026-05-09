@@ -23,7 +23,7 @@ const menuItems = [
   { path: '/gestor', label: 'Gestão de Frota', icon: Car },
   { path: '/admin/licenses', label: 'Licenças', icon: Key },
   { path: '/admin/mobile-gate', label: 'Respostas Mobile', icon: Footprints },
-  { path: '/admin/desktop-gate', label: 'Respostas Desktop', icon: Monitor },
+  { path: '/admin/manager-access', label: 'Solicitações Gestor', icon: Monitor },
   { path: '/admin/logs', label: 'Logs', icon: ScrollText },
 ];
 

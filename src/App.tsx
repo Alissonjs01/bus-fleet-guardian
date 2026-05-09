@@ -78,7 +78,7 @@ const App = () => (
               }
             />
             <Route
-              path="/admin/desktop-gate"
+              path="/admin/manager-access"
               element={
                 <AuthGuard>
                   <AdminRoute>
@@ -87,6 +87,7 @@ const App = () => (
                 </AuthGuard>
               }
             />
+            <Route path="/admin/desktop-gate" element={<Navigate to="/admin/manager-access" replace />} />
             <Route
               path="/gestor"
               element={
