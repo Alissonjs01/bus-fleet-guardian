@@ -6,11 +6,12 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Driver, FleetData } from "@/types/fleet";
-import { normalizeRegistration, saveFleetData } from "@/utils/localStorage";
+import { normalizeRegistration } from "@/utils/localStorage";
 import { DRIVER_STATUS_LABELS, DRIVER_STATUSES, normalizeDriverStatus } from "@/constants/driverStatus";
 import { Users, Plus, Edit, Trash2, Phone, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useFleetData } from "@/hooks/useFleetData";
+import { deleteDriver, upsertDriver } from "@/services/fleetService";
 
 export const DriverManagement = () => {
   const [data, setData] = useState<FleetData | null>(null);
@@ -24,8 +25,9 @@ export const DriverManagement = () => {
     userId: "",
     status: DRIVER_STATUSES.ACTIVE as Driver["status"],
   });
+  const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
-  const { data: realtimeData, loading } = useFleetData();
+  const { data: realtimeData, loading, companyId } = useFleetData();
 
   useEffect(() => {
     if (loading) return;
@@ -38,9 +40,9 @@ export const DriverManagement = () => {
     setEditingDriver(null);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!data) return;
+    if (!data || isSaving) return;
 
     const numeroRegistro = normalizeRegistration(formData.numeroRegistro);
 
@@ -68,13 +70,11 @@ export const DriverManagement = () => {
       return;
     }
 
-    const newData = { ...data };
+    setIsSaving(true);
 
-    if (isEditing && editingDriver) {
-      // Editar motorista existente
-      const index = newData.drivers.findIndex(d => d.id === editingDriver.id);
-      if (index !== -1) {
-        newData.drivers[index] = {
+    try {
+      if (isEditing && editingDriver) {
+        await upsertDriver(companyId, {
           ...editingDriver,
           numeroRegistro,
           registrationNumber: numeroRegistro,
@@ -86,38 +86,43 @@ export const DriverManagement = () => {
           document: formData.document || undefined,
           userId: formData.userId || undefined,
           status: normalizeDriverStatus(formData.status),
+        });
+        toast({
+          title: "Sucesso",
+          description: "Motorista atualizado com sucesso"
+        });
+      } else {
+        const newDriver: Driver = {
+          id: Math.max(0, ...data.drivers.map(d => d.id)) + 1,
+          numeroRegistro,
+          registrationNumber: numeroRegistro,
+          registrationNumberNormalized: numeroRegistro,
+          nome: formData.nome,
+          name: formData.nome,
+          telefone: formData.telefone || undefined,
+          phone: formData.telefone || undefined,
+          document: formData.document || undefined,
+          userId: formData.userId || undefined,
+          companyId,
+          status: normalizeDriverStatus(formData.status),
+          createdAt: new Date().toISOString()
         };
+        await upsertDriver(companyId, newDriver);
+        toast({
+          title: "Sucesso",
+          description: "Motorista cadastrado com sucesso"
+        });
       }
+      resetForm();
+    } catch (error) {
       toast({
-        title: "Sucesso",
-        description: "Motorista atualizado com sucesso"
+        title: "Erro ao salvar",
+        description: error instanceof Error ? error.message : "Nao foi possivel gravar o motorista no Firestore",
+        variant: "destructive"
       });
-    } else {
-      // Criar novo motorista
-      const newDriver: Driver = {
-        id: Math.max(0, ...newData.drivers.map(d => d.id)) + 1,
-        numeroRegistro,
-        registrationNumber: numeroRegistro,
-        registrationNumberNormalized: numeroRegistro,
-        nome: formData.nome,
-        name: formData.nome,
-        telefone: formData.telefone || undefined,
-        phone: formData.telefone || undefined,
-        document: formData.document || undefined,
-        userId: formData.userId || undefined,
-        status: normalizeDriverStatus(formData.status),
-        createdAt: new Date().toISOString()
-      };
-      newData.drivers.push(newDriver);
-      toast({
-        title: "Sucesso",
-        description: "Motorista cadastrado com sucesso"
-      });
+    } finally {
+      setIsSaving(false);
     }
-
-    saveFleetData(newData);
-    setData(newData);
-    resetForm();
   };
 
   const handleEdit = (driver: Driver) => {
@@ -133,8 +138,8 @@ export const DriverManagement = () => {
     setIsEditing(true);
   };
 
-  const handleDelete = (driver: Driver) => {
-    if (!data) return;
+  const handleDelete = async (driver: Driver) => {
+    if (!data || isSaving) return;
     
     // Verificar se o motorista tem problemas ou viagens
     const hasProblems = data.problems.some(p => p.driverId === driver.id);
@@ -150,16 +155,22 @@ export const DriverManagement = () => {
     }
     
     if (confirm(`Tem certeza que deseja excluir o motorista ${driver.nome}?`)) {
-      const newData = {
-        ...data,
-        drivers: data.drivers.filter(d => d.id !== driver.id)
-      };
-      saveFleetData(newData);
-      setData(newData);
-      toast({
-        title: "Sucesso",
-        description: "Motorista excluído com sucesso"
-      });
+      setIsSaving(true);
+      try {
+        await deleteDriver(driver);
+        toast({
+          title: "Sucesso",
+          description: "Motorista excluído com sucesso"
+        });
+      } catch (error) {
+        toast({
+          title: "Erro ao excluir",
+          description: error instanceof Error ? error.message : "Nao foi possivel excluir o motorista no Firestore",
+          variant: "destructive"
+        });
+      } finally {
+        setIsSaving(false);
+      }
     }
   };
 
@@ -255,8 +266,8 @@ export const DriverManagement = () => {
               </div>
 
               <div className="flex gap-2">
-                <Button type="submit" className="flex-1">
-                  {isEditing ? 'Atualizar' : 'Cadastrar'}
+                <Button type="submit" className="flex-1" disabled={isSaving}>
+                  {isSaving ? 'Salvando...' : isEditing ? 'Atualizar' : 'Cadastrar'}
                 </Button>
                 {isEditing && (
                   <Button type="button" variant="outline" onClick={resetForm}>
