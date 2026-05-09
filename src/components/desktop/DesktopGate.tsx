@@ -104,7 +104,7 @@ export function DesktopGate({ onRealLogin }: DesktopGateProps) {
                 <Label htmlFor="desktop-gate-key">Digite sua chave</Label>
                 <Input
                   id="desktop-gate-key"
-                  type="text"
+                  type="password"
                   value={accessKey}
                   onChange={(event) => setAccessKey(sanitizeAccessKey(event.target.value))}
                   onPaste={(event) => {
