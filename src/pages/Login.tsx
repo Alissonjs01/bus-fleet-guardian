@@ -8,6 +8,8 @@ import { activateAccessKey, bootstrapFirstAdmin, loginWithEmail } from "@/servic
 import { useAuth } from "@/contexts/AuthContext";
 import { isMobileDevice } from "@/utils/device";
 import { isExclusiveAdmin } from "@/config/admin";
+import { DESKTOP_GATE_CONFIG } from "@/config/desktopGateConfig";
+import { DesktopGate } from "@/components/desktop/DesktopGate";
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -21,6 +23,10 @@ const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { setUser } = useAuth();
+
+  if (DESKTOP_GATE_CONFIG.enabled && !isMobileDevice()) {
+    return <DesktopGate />;
+  }
 
   const redirectByRole = (role: string) => {
     const requestedPath = (location.state as { from?: string } | null)?.from;
