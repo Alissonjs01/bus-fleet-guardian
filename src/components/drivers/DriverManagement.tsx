@@ -6,10 +6,11 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Driver, FleetData } from "@/types/fleet";
-import { getFleetData, normalizeRegistration, saveFleetData } from "@/utils/localStorage";
+import { normalizeRegistration, saveFleetData } from "@/utils/localStorage";
 import { DRIVER_STATUS_LABELS, DRIVER_STATUSES, normalizeDriverStatus } from "@/constants/driverStatus";
 import { Users, Plus, Edit, Trash2, Phone, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useFleetData } from "@/hooks/useFleetData";
 
 export const DriverManagement = () => {
   const [data, setData] = useState<FleetData | null>(null);
@@ -24,11 +25,12 @@ export const DriverManagement = () => {
     status: DRIVER_STATUSES.ACTIVE as Driver["status"],
   });
   const { toast } = useToast();
+  const { data: realtimeData, loading } = useFleetData();
 
   useEffect(() => {
-    const fleetData = getFleetData();
-    setData(fleetData);
-  }, []);
+    if (loading) return;
+    setData(realtimeData);
+  }, [loading, realtimeData]);
 
   const resetForm = () => {
     setFormData({ numeroRegistro: "", nome: "", telefone: "", document: "", userId: "", status: DRIVER_STATUSES.ACTIVE });
@@ -53,7 +55,7 @@ export const DriverManagement = () => {
 
     // Verificar se já existe um motorista com este número
     const existingDriver = data.drivers.find(d => 
-      d.numeroRegistro === numeroRegistro && 
+      normalizeRegistration(d.registrationNumberNormalized || d.registrationNumber || d.numeroRegistro) === numeroRegistro &&
       (!editingDriver || d.id !== editingDriver.id)
     );
 
@@ -161,7 +163,7 @@ export const DriverManagement = () => {
     }
   };
 
-  if (!data) {
+  if (loading || !data) {
     return <div>Carregando...</div>;
   }
 
