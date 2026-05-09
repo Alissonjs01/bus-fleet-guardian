@@ -10,6 +10,7 @@ import Activation from "./pages/Activation";
 import AdminDashboard from "./admin/pages/AdminDashboard";
 import LicenseList from "./admin/pages/LicenseList";
 import ActivityLogs from "./admin/pages/ActivityLogs";
+import MobileGateAnswers from "./admin/pages/MobileGateAnswers";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { DeviceRedirect } from "@/components/auth/DeviceRedirect";
@@ -61,6 +62,16 @@ const App = () => (
                 <AuthGuard>
                   <AdminRoute>
                     <ActivityLogs />
+                  </AdminRoute>
+                </AuthGuard>
+              }
+            />
+            <Route
+              path="/admin/mobile-gate"
+              element={
+                <AuthGuard>
+                  <AdminRoute>
+                    <MobileGateAnswers />
                   </AdminRoute>
                 </AuthGuard>
               }

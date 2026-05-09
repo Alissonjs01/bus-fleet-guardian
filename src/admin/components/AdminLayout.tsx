@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard,
   Car,
+  Footprints,
   Key, 
   ScrollText, 
   LogOut,
@@ -20,6 +21,7 @@ const menuItems = [
   { path: '/admin', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/gestor', label: 'Gestão de Frota', icon: Car },
   { path: '/admin/licenses', label: 'Licenças', icon: Key },
+  { path: '/admin/mobile-gate', label: 'Respostas Mobile', icon: Footprints },
   { path: '/admin/logs', label: 'Logs', icon: ScrollText },
 ];
 

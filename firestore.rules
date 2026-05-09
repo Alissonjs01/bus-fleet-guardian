@@ -148,7 +148,8 @@ service cloud.firestore {
         request.resource.data.answerCm >= 10 &&
         request.resource.data.answerCm <= 20 &&
         request.resource.data.userAgent is string;
-      allow read, update, delete: if false;
+      allow read: if isAdmin();
+      allow update, delete: if false;
     }
 
     match /{document=**} {
