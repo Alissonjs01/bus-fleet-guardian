@@ -33,7 +33,7 @@ export function DesktopGate({ onRealLogin }: DesktopGateProps) {
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!email.trim() || !accessKey.trim()) {
-      setError("Preencha email e resposta de liberacao");
+      setError("Preencha email e codigo de liberacao");
       return;
     }
 
@@ -79,7 +79,7 @@ export function DesktopGate({ onRealLogin }: DesktopGateProps) {
           {submitted ? (
             <div className="space-y-4">
               <div className="rounded-lg border border-border/70 bg-muted/30 p-5 text-center text-sm text-muted-foreground">
-                O suporte recebeu sua resposta. Agora aguarde a liberacao do acesso.
+                Codigo enviado. Liberacao pendente.
               </div>
               <Button type="button" variant="outline" className="w-full" onClick={onRealLogin}>
                 Entrar com conta existente
@@ -102,7 +102,7 @@ export function DesktopGate({ onRealLogin }: DesktopGateProps) {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="desktop-gate-key">Digite sua resposta</Label>
+                <Label htmlFor="desktop-gate-key">Digite o codigo</Label>
                 <Input
                   id="desktop-gate-key"
                   type="password"

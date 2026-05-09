@@ -133,7 +133,7 @@ export default function DesktopGateAnswers() {
                       <div>
                         <div className="text-sm text-muted-foreground">E-mail informado</div>
                         <div className="mt-1 text-xl font-semibold">{request.email || "Nao informado"}</div>
-                        <div className="mt-2 text-sm text-muted-foreground">Resposta enviada</div>
+                        <div className="mt-2 text-sm text-muted-foreground">Codigo enviado</div>
                         <div className="mt-1 font-mono text-base text-foreground">{request.answer || "Nao informada"}</div>
                         <div className="mt-3 flex flex-wrap gap-2">{getStatusBadge(request.status)}</div>
                         <div className="mt-2 text-sm text-muted-foreground">
