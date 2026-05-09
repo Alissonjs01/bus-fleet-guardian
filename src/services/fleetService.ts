@@ -407,6 +407,49 @@ export async function upsertDriver(companyId: string, driver: Driver) {
   }));
 
   if (driver.firestoreId) {
+    const driverStatus = normalizeDriverStatus(driver.status);
+
+    if (driverStatus === "active") {
+      const batch = writeBatch(db);
+      const now = new Date().toISOString();
+
+      batch.update(doc(db, "drivers", driver.firestoreId), payload);
+
+      const activeRoutes = await getDocs(query(
+        collection(db, "routes"),
+        where("companyId", "==", companyId),
+        where("driverId", "==", driver.id),
+        where("status", "==", "active"),
+      ));
+
+      activeRoutes.docs.forEach((routeDoc) => {
+        batch.update(doc(db, "routes", routeDoc.id), {
+          status: "finished",
+          finishedAt: now,
+          updatedAt: serverTimestamp(),
+        });
+      });
+
+      const driverTrips = await getDocs(query(
+        collection(db, "trips"),
+        where("companyId", "==", companyId),
+        where("driverId", "==", driver.id),
+      ));
+
+      driverTrips.docs
+        .filter((tripDoc) => !tripDoc.data().retorno && !tripDoc.data().endTime)
+        .forEach((tripDoc) => {
+          batch.update(doc(db, "trips", tripDoc.id), {
+            retorno: now,
+            endTime: now,
+            updatedAt: serverTimestamp(),
+          });
+        });
+
+      await batch.commit();
+      return driver.firestoreId;
+    }
+
     await updateDoc(doc(db, "drivers", driver.firestoreId), payload);
     return driver.firestoreId;
   }

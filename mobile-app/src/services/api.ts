@@ -19,6 +19,34 @@ class MobileAPIService {
     );
   }
 
+  private async getVehicleByNumber(vehicleNumber: string) {
+    const normalizedVehicleNumber = normalizeRegistration(vehicleNumber);
+    const byRegistration = await getDocs(query(
+      collection(db, "vehicles"),
+      where("companyId", "==", MOBILE_COMPANY_ID),
+      where("numeroRegistro", "==", normalizedVehicleNumber),
+    ));
+
+    const snapshot = byRegistration.empty
+      ? await getDocs(query(
+        collection(db, "vehicles"),
+        where("companyId", "==", MOBILE_COMPANY_ID),
+        where("plate", "==", normalizedVehicleNumber),
+      ))
+      : byRegistration;
+
+    const vehicleDoc = snapshot.docs[0];
+    if (!vehicleDoc) return null;
+
+    const vehicle = vehicleDoc.data();
+    return {
+      id: vehicleDoc.id,
+      legacyId: Number(vehicle.legacyId || vehicle.id || 0),
+      status: String(vehicle.status || "garagem"),
+      data: vehicle,
+    };
+  }
+
   async login(numeroRegistro: string): Promise<APIResponse<{ nome: string; firestoreId?: string; companyId?: string; status?: DriverStatus }>> {
     const driver = await getDriverByRegistration(numeroRegistro);
 
@@ -45,25 +73,8 @@ class MobileAPIService {
   }
 
   async registrarSaida(vehicleNumber: string, driverNumber: string): Promise<APIResponse> {
-    const data = getFleetData();
-    const normalizedVehicleNumber = normalizeRegistration(vehicleNumber);
     const driver = await getDriverByRegistration(driverNumber, MOBILE_COMPANY_ID);
-    const vehicleSnapshot = await getDocs(query(
-      collection(db, "vehicles"),
-      where("companyId", "==", MOBILE_COMPANY_ID),
-      where("numeroRegistro", "==", normalizedVehicleNumber),
-    ));
-    const fallbackVehicleSnapshot = vehicleSnapshot.empty
-      ? await getDocs(query(
-        collection(db, "vehicles"),
-        where("companyId", "==", MOBILE_COMPANY_ID),
-        where("plate", "==", normalizedVehicleNumber),
-      ))
-      : vehicleSnapshot;
-    const vehicleDoc = fallbackVehicleSnapshot.docs[0];
-    const vehicle = vehicleDoc
-      ? { ...vehicleDoc.data(), firestoreId: vehicleDoc.id }
-      : data.vehicles.find((item) => item.numeroRegistro === normalizedVehicleNumber);
+    const vehicle = await this.getVehicleByNumber(vehicleNumber);
 
     if (!vehicle) {
       return { success: false, message: "Veiculo nao encontrado" };
@@ -91,14 +102,12 @@ class MobileAPIService {
 
     const now = new Date().toISOString();
     const batch = writeBatch(db);
-    const vehicleId = Number(vehicle.legacyId || vehicle.id || 0);
+    const vehicleId = vehicle.legacyId;
 
-    if (vehicleDoc) {
-      batch.update(doc(db, "vehicles", vehicleDoc.id), {
-        status: "operacao",
-        updatedAt: serverTimestamp(),
-      });
-    }
+    batch.update(doc(db, "vehicles", vehicle.id), {
+      status: "operacao",
+      updatedAt: serverTimestamp(),
+    });
 
     if (driver.firestoreId) {
       batch.update(doc(db, "drivers", driver.firestoreId), {
@@ -141,10 +150,8 @@ class MobileAPIService {
   }
 
   async registrarRetorno(vehicleNumber: string, driverNumber: string, problems: ProblemReport[]): Promise<APIResponse> {
-    const data = getFleetData();
-    const normalizedVehicleNumber = normalizeRegistration(vehicleNumber);
-    const vehicle = data.vehicles.find((item) => item.numeroRegistro === normalizedVehicleNumber);
-    const driver = this.findDriver(data, driverNumber);
+    const vehicle = await this.getVehicleByNumber(vehicleNumber);
+    const driver = await getDriverByRegistration(driverNumber, MOBILE_COMPANY_ID);
 
     if (!vehicle) {
       return { success: false, message: "Veiculo nao encontrado" };
@@ -154,52 +161,81 @@ class MobileAPIService {
       return { success: false, message: "Motorista nao encontrado" };
     }
 
-    const activeTrip = [...data.trips].reverse().find((trip) =>
-      trip.vehicleId === vehicle.id &&
-      trip.driverId === driver.id &&
-      !trip.retorno
-    );
+    const now = new Date().toISOString();
+    const batch = writeBatch(db);
+    const vehicleId = vehicle.legacyId;
 
-    if (activeTrip) {
-      activeTrip.retorno = new Date().toISOString();
+    const activeRoutes = await getDocs(query(
+      collection(db, "routes"),
+      where("companyId", "==", MOBILE_COMPANY_ID),
+      where("vehicleId", "==", vehicleId),
+      where("driverId", "==", driver.id),
+      where("status", "==", "active"),
+    ));
+
+    activeRoutes.docs.forEach((routeDoc) => {
+      batch.update(doc(db, "routes", routeDoc.id), {
+        status: "finished",
+        finishedAt: now,
+        updatedAt: serverTimestamp(),
+      });
+    });
+
+    const driverTrips = await getDocs(query(
+      collection(db, "trips"),
+      where("companyId", "==", MOBILE_COMPANY_ID),
+      where("vehicleId", "==", vehicleId),
+      where("driverId", "==", driver.id),
+    ));
+
+    driverTrips.docs
+      .filter((tripDoc) => !tripDoc.data().retorno && !tripDoc.data().endTime)
+      .forEach((tripDoc) => {
+        batch.update(doc(db, "trips", tripDoc.id), {
+          retorno: now,
+          endTime: now,
+          updatedAt: serverTimestamp(),
+        });
+      });
+
+    batch.update(doc(db, "vehicles", vehicle.id), {
+      status: problems.length > 0 ? "manutencao" : "garagem",
+      updatedAt: serverTimestamp(),
+    });
+
+    if (driver.firestoreId) {
+      batch.update(doc(db, "drivers", driver.firestoreId), {
+        status: DRIVER_STATUSES.ACTIVE,
+        updatedAt: serverTimestamp(),
+      });
     }
 
-    const activeRoute = [...data.routes].reverse().find((route) =>
-      route.vehicleId === vehicle.id &&
-      route.driverId === driver.id &&
-      route.status === "active"
-    );
-
-    if (activeRoute) {
-      activeRoute.status = "finished";
-      activeRoute.finishedAt = new Date().toISOString();
-    }
-
-    vehicle.status = problems.length > 0 ? "manutencao" : "garagem";
-    driver.status = DRIVER_STATUSES.ACTIVE;
-
-    problems.forEach((problem) => {
-      data.problems.push({
-        id: Math.max(0, ...data.problems.map((item) => item.id)) + 1,
-        vehicleId: vehicle.id,
+    problems.forEach((problem, index) => {
+      const problemRef = doc(collection(db, "issues"));
+      batch.set(problemRef, {
+        companyId: MOBILE_COMPANY_ID,
+        legacyId: Date.now() + index,
+        vehicleId,
         driverId: driver.id,
         categoria: problem.categoria,
         gravidade: problem.gravidade,
         observacao: problem.observacao,
+        title: problem.observacao.slice(0, 80),
+        description: problem.observacao,
+        priority: problem.gravidade,
         status: "aberto",
-        createdAt: problem.reportedAt,
+        createdAt: problem.reportedAt || now,
+        updatedAt: serverTimestamp(),
       });
     });
 
-    saveFleetData(data);
+    await batch.commit();
     return { success: true, message: "Retorno registrado com sucesso" };
   }
 
   async reportarProblema(problem: Omit<ProblemReport, "id" | "reportedAt">): Promise<APIResponse> {
-    const data = getFleetData();
-    const normalizedVehicleNumber = normalizeRegistration(problem.vehicleNumber);
-    const vehicle = data.vehicles.find((item) => item.numeroRegistro === normalizedVehicleNumber);
-    const driver = this.findDriver(data, problem.driverNumber);
+    const vehicle = await this.getVehicleByNumber(problem.vehicleNumber);
+    const driver = await getDriverByRegistration(problem.driverNumber, MOBILE_COMPANY_ID);
 
     if (!vehicle) {
       return { success: false, message: "Veiculo nao encontrado" };
@@ -209,18 +245,28 @@ class MobileAPIService {
       return { success: false, message: "Motorista nao encontrado" };
     }
 
-    vehicle.status = "manutencao";
-    data.problems.push({
-      id: Math.max(0, ...data.problems.map((item) => item.id)) + 1,
-      vehicleId: vehicle.id,
+    const now = new Date().toISOString();
+    const batch = writeBatch(db);
+    batch.update(doc(db, "vehicles", vehicle.id), {
+      status: "manutencao",
+      updatedAt: serverTimestamp(),
+    });
+    batch.set(doc(collection(db, "issues")), {
+      companyId: MOBILE_COMPANY_ID,
+      legacyId: Date.now(),
+      vehicleId: vehicle.legacyId,
       driverId: driver.id,
       categoria: problem.categoria,
       gravidade: problem.gravidade,
       observacao: problem.observacao,
+      title: problem.observacao.slice(0, 80),
+      description: problem.observacao,
+      priority: problem.gravidade,
       status: "aberto",
-      createdAt: new Date().toISOString(),
+      createdAt: now,
+      updatedAt: serverTimestamp(),
     });
-    saveFleetData(data);
+    await batch.commit();
 
     return { success: true, message: "Problema reportado com sucesso" };
   }
