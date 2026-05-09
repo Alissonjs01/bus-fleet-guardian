@@ -14,7 +14,7 @@ type MobileView = "login" | "dashboard" | "trip-start" | "trip-end" | "problem-r
 
 export const MobileApp = () => {
   const [gateCompleted, setGateCompleted] = useState(() =>
-    !MOBILE_GATE_CONFIG.enabled || localStorage.getItem(MOBILE_GATE_CONFIG.storageKey) === "true",
+    !MOBILE_GATE_CONFIG.enabled,
   );
   const [currentView, setCurrentView] = useState<MobileView>(() =>
     mobileStorage.isLoggedIn() ? "dashboard" : "login",

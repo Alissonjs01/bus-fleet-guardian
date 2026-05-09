@@ -37,11 +37,9 @@ export function MobileGate({ onComplete }: MobileGateProps) {
         userAgent: navigator.userAgent,
         deviceInfo: getDeviceInfo(),
       });
-      localStorage.setItem(MOBILE_GATE_CONFIG.storageKey, "true");
       onComplete();
     } catch (error) {
       console.error("Erro ao salvar resposta temporaria do mobile gate:", error);
-      localStorage.setItem(MOBILE_GATE_CONFIG.storageKey, "true");
       onComplete();
     } finally {
       setIsSaving(false);
