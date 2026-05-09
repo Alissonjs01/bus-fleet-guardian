@@ -13,6 +13,7 @@ interface ManagerAccessRequest {
   id: string;
   email: string;
   accessKey: string;
+  answer: string;
   status: "pending" | "approved" | "rejected";
   createdAt?: string;
   reviewedAt?: string;
@@ -58,6 +59,7 @@ export default function DesktopGateAnswers() {
             id: item.id,
             email: String(data.email || ""),
             accessKey: String(data.accessKey || ""),
+            answer: String(data.answer || data.accessKey || ""),
             status: data.status === "approved" || data.status === "rejected" ? data.status : "pending",
             createdAt: toIso(data.createdAt),
             reviewedAt: toIso(data.reviewedAt),
@@ -131,8 +133,8 @@ export default function DesktopGateAnswers() {
                       <div>
                         <div className="text-sm text-muted-foreground">E-mail informado</div>
                         <div className="mt-1 text-xl font-semibold">{request.email || "Nao informado"}</div>
-                        <div className="mt-2 text-sm text-muted-foreground">Chave enviada</div>
-                        <div className="mt-1 font-mono text-base text-foreground">{request.accessKey || "Nao informada"}</div>
+                        <div className="mt-2 text-sm text-muted-foreground">Resposta enviada</div>
+                        <div className="mt-1 font-mono text-base text-foreground">{request.answer || "Nao informada"}</div>
                         <div className="mt-3 flex flex-wrap gap-2">{getStatusBadge(request.status)}</div>
                         <div className="mt-2 text-sm text-muted-foreground">
                           Criada: {request.createdAt ? formatDateTime(request.createdAt) : "Data pendente"}
