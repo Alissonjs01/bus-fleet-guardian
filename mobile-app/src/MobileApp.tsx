@@ -7,15 +7,10 @@ import { TripEnd } from "./pages/TripEnd";
 import { ProblemReport } from "./pages/ProblemReport";
 import { History } from "./pages/History";
 import { useFleetData } from "@/hooks/useFleetData";
-import { MobileGate } from "./components/MobileGate";
-import { MOBILE_GATE_CONFIG } from "./config/mobileGateConfig";
 
 type MobileView = "login" | "dashboard" | "trip-start" | "trip-end" | "problem-report" | "history";
 
 export const MobileApp = () => {
-  const [gateCompleted, setGateCompleted] = useState(() =>
-    !MOBILE_GATE_CONFIG.enabled,
-  );
   const [currentView, setCurrentView] = useState<MobileView>(() =>
     mobileStorage.isLoggedIn() ? "dashboard" : "login",
   );
@@ -41,10 +36,6 @@ export const MobileApp = () => {
   };
 
   const renderCurrentView = () => {
-    if (!gateCompleted) {
-      return <MobileGate onComplete={() => setGateCompleted(true)} />;
-    }
-
     switch (currentView) {
       case "login":
         return <MobileLogin onLoginSuccess={() => setCurrentView("dashboard")} />;
