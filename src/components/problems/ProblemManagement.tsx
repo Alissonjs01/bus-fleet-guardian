@@ -48,7 +48,7 @@ export const ProblemManagement = () => {
     categoria: "todas",
     gravidade: "todas",
   });
-  const [selectedProblemId, setSelectedProblemId] = useState<string | number | null>(null);
+  const [selectedProblemId, setSelectedProblemId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
   const { data, loading, companyId, syncStatus } = useFleetData();
@@ -233,7 +233,7 @@ export const ProblemManagement = () => {
               const vehicle = data.vehicles.find((item) => item.id === problem.vehicleId);
               const driver = data.drivers.find((item) => item.id === problem.driverId);
               const route = getLinkedRoute(problem, data.routes);
-              const selectedKey = problem.firestoreId || problem.id;
+              const selectedKey = String(problem.firestoreId || problem.id);
               const isSelected = selectedProblemId === selectedKey;
               const hasLocation = typeof problem.location?.latitude === "number" && typeof problem.location?.longitude === "number";
 
@@ -287,29 +287,6 @@ export const ProblemManagement = () => {
                         )}
                       </div>
 
-                      {isSelected && (
-                        <div className="mt-3 grid gap-2 rounded border bg-muted/40 p-3 text-sm text-muted-foreground md:grid-cols-2">
-                          <div>Status: {PROBLEM_STATUS_LABELS[status]}</div>
-                          <div>Prioridade: {PROBLEM_PRIORITY_LABELS[problem.gravidade]}</div>
-                          <div>Tipo: {PROBLEM_CATEGORY_LABELS[problem.categoria]}</div>
-                          <div>Empresa: {problem.companyId || companyId}</div>
-                          <div>Veiculo: {vehicle?.numeroRegistro || problem.vehicleId}</div>
-                          <div>Motorista: {driver?.nome || problem.driverId}</div>
-                          <div>Rota: {route ? `${route.status} (${route.firestoreId || route.id})` : "Nao vinculada"}</div>
-                          <div>Sincronizacao: {syncStatus}</div>
-                          <div>ID Firestore: {problem.firestoreId || "pendente"}</div>
-                          <div>Criada em: {formatDateTime(problem.createdAt)}</div>
-                          {hasLocation && (
-                            <div className="md:col-span-2">
-                              GPS: {problem.location?.latitude.toFixed(6)}, {problem.location?.longitude.toFixed(6)}
-                              {problem.location?.accuracy ? ` (${Math.round(problem.location.accuracy)}m)` : ""}
-                            </div>
-                          )}
-                          {!hasLocation && problem.locationError && (
-                            <div className="md:col-span-2">GPS: {problem.locationError.message}</div>
-                          )}
-                        </div>
-                      )}
                     </div>
 
                     <div className="flex flex-wrap gap-2 lg:justify-end">
@@ -348,10 +325,106 @@ export const ProblemManagement = () => {
                         onClick={() => setSelectedProblemId(isSelected ? null : selectedKey)}
                       >
                         <Eye className="h-4 w-4 mr-1" />
-                        Detalhes
+                        {isSelected ? "Ocultar" : "Detalhes"}
                       </Button>
                     </div>
                   </div>
+
+                  {isSelected && (
+                    <div className="mt-4 rounded-lg border bg-background p-4">
+                      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <h4 className="font-medium">Detalhes da ocorrencia</h4>
+                          <p className="text-sm text-muted-foreground">
+                            {vehicle?.numeroRegistro || "Veiculo nao encontrado"} • {driver?.nome || "Motorista nao encontrado"}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {status !== "em_andamento" && (
+                            <Button size="sm" variant="outline" onClick={() => handleStatusChange(problem, "em_andamento")} disabled={isSaving}>
+                              Em andamento
+                            </Button>
+                          )}
+                          {status !== "resolvida" && (
+                            <Button size="sm" variant="outline" onClick={() => handleStatusChange(problem, "resolvida")} disabled={isSaving}>
+                              Resolver
+                            </Button>
+                          )}
+                          {status !== "cancelada" && (
+                            <Button size="sm" variant="outline" onClick={() => handleStatusChange(problem, "cancelada")} disabled={isSaving}>
+                              Cancelar
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="grid gap-3 text-sm md:grid-cols-3">
+                        <div className="rounded-md border p-3">
+                          <div className="text-muted-foreground">Status</div>
+                          <div className="font-medium">{PROBLEM_STATUS_LABELS[status]}</div>
+                        </div>
+                        <div className="rounded-md border p-3">
+                          <div className="text-muted-foreground">Prioridade</div>
+                          <div className="font-medium">{PROBLEM_PRIORITY_LABELS[problem.gravidade]}</div>
+                        </div>
+                        <div className="rounded-md border p-3">
+                          <div className="text-muted-foreground">Tipo</div>
+                          <div className="font-medium">{PROBLEM_CATEGORY_LABELS[problem.categoria]}</div>
+                        </div>
+                        <div className="rounded-md border p-3">
+                          <div className="text-muted-foreground">Veiculo</div>
+                          <div className="font-medium">{vehicle?.numeroRegistro || problem.vehicleId}</div>
+                        </div>
+                        <div className="rounded-md border p-3">
+                          <div className="text-muted-foreground">Motorista</div>
+                          <div className="font-medium">{driver?.nome || problem.driverId}</div>
+                        </div>
+                        <div className="rounded-md border p-3">
+                          <div className="text-muted-foreground">Rota</div>
+                          <div className="font-medium">{route ? `${route.status === "active" ? "Ativa" : "Finalizada"} #${route.id || route.firestoreId}` : "Nao vinculada"}</div>
+                        </div>
+                        <div className="rounded-md border p-3">
+                          <div className="text-muted-foreground">Criada em</div>
+                          <div className="font-medium">{formatDateTime(problem.createdAt)}</div>
+                        </div>
+                        <div className="rounded-md border p-3">
+                          <div className="text-muted-foreground">Sincronizacao</div>
+                          <div className="font-medium">{syncStatus}</div>
+                        </div>
+                        <div className="rounded-md border p-3">
+                          <div className="text-muted-foreground">Firestore</div>
+                          <div className="truncate font-mono text-xs">{problem.firestoreId || "pendente"}</div>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 rounded-md border p-3 text-sm">
+                        <div className="text-muted-foreground">Descricao</div>
+                        <div className="mt-1">{problem.observacao}</div>
+                      </div>
+
+                      <div className="mt-3 rounded-md border p-3 text-sm">
+                        <div className="text-muted-foreground">Localizacao</div>
+                        {hasLocation && problem.location ? (
+                          <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <span>
+                              {problem.location.latitude.toFixed(6)}, {problem.location.longitude.toFixed(6)}
+                              {problem.location.accuracy ? ` • precisao ${Math.round(problem.location.accuracy)}m` : ""}
+                            </span>
+                            <Button size="sm" variant="outline" asChild>
+                              <a href={getMapUrl(problem.location)} target="_blank" rel="noreferrer">
+                                <MapPin className="h-4 w-4 mr-1" />
+                                Abrir mapa
+                              </a>
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="mt-1 text-muted-foreground">
+                            {problem.locationError?.message || "Sem localizacao registrada"}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}
