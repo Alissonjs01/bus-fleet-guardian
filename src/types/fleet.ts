@@ -45,7 +45,7 @@ export interface Problem {
   status: 'aberta' | 'em_andamento' | 'resolvida' | 'cancelada';
   createdAt: string;
   updatedAt?: string;
-  resolvedAt?: string;
+  resolvedAt?: string | null;
   location?: GeoPointSnapshot | null;
   locationError?: GeoPointFailure | null;
   routeId?: number;

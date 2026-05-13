@@ -3,8 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Problem } from "@/types/fleet";
-import { AlertTriangle, CheckCircle, Clock, User, Car, Eye, MapPin } from "lucide-react";
+import { Problem, Route } from "@/types/fleet";
+import { AlertTriangle, CheckCircle, Clock, User, Car, Eye, MapPin, Route as RouteIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatDateTime } from "@/utils/dateFormat";
 import { useFleetData } from "@/hooks/useFleetData";
@@ -17,6 +17,30 @@ const PROBLEM_STATUS_LABELS: Record<Problem["status"], string> = {
   resolvida: "Resolvida",
   cancelada: "Cancelada",
 };
+
+const PROBLEM_CATEGORY_LABELS: Record<Problem["categoria"], string> = {
+  eletrica: "Eletrica",
+  mecanica: "Mecanica",
+  funilaria: "Funilaria",
+  limpeza: "Limpeza",
+  pneus: "Pneus",
+  outros: "Outros",
+};
+
+const PROBLEM_PRIORITY_LABELS: Record<Problem["gravidade"], string> = {
+  baixa: "Baixa",
+  media: "Media",
+  alta: "Alta",
+  critica: "Critica",
+};
+
+function getLinkedRoute(problem: Problem, routes: Route[]) {
+  return routes.find((route) => {
+    if (problem.routeFirestoreId && route.firestoreId === problem.routeFirestoreId) return true;
+    if (problem.routeId && route.id === problem.routeId) return true;
+    return route.status === "active" && route.vehicleId === problem.vehicleId && route.driverId === problem.driverId;
+  });
+}
 
 export const ProblemManagement = () => {
   const [filter, setFilter] = useState({
@@ -34,7 +58,7 @@ export const ProblemManagement = () => {
     setIsSaving(true);
 
     try {
-      const resolvedAt = status === "resolvida" ? new Date().toISOString() : problem.resolvedAt;
+      const resolvedAt = status === "resolvida" ? new Date().toISOString() : null;
       await updateProblem(companyId, {
         ...problem,
         status,
@@ -89,6 +113,13 @@ export const ProblemManagement = () => {
       });
   }, [data.problems, filter]);
 
+  const stats = useMemo(() => ({
+    abertas: data.problems.filter((problem) => normalizeProblemStatus(problem.status) === "aberta").length,
+    emAndamento: data.problems.filter((problem) => normalizeProblemStatus(problem.status) === "em_andamento").length,
+    criticas: data.problems.filter((problem) => isProblemOpen(problem.status) && problem.gravidade === "critica").length,
+    comGps: data.problems.filter((problem) => typeof problem.location?.latitude === "number" && typeof problem.location?.longitude === "number").length,
+  }), [data.problems]);
+
   if (loading) {
     return <div>Carregando...</div>;
   }
@@ -98,8 +129,35 @@ export const ProblemManagement = () => {
       <div>
         <h2 className="text-3xl font-bold tracking-tight">Controle de Problemas</h2>
         <p className="text-muted-foreground">
-          Gerenciamento dos problemas relatados pelos motoristas
+          Central de ocorrencias da frota em tempo real
         </p>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-4">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-2xl font-bold">{stats.abertas}</div>
+            <p className="text-xs text-muted-foreground">Abertas</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-2xl font-bold">{stats.emAndamento}</div>
+            <p className="text-xs text-muted-foreground">Em andamento</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-2xl font-bold">{stats.criticas}</div>
+            <p className="text-xs text-muted-foreground">Criticas abertas</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-2xl font-bold">{stats.comGps}</div>
+            <p className="text-xs text-muted-foreground">Com GPS</p>
+          </CardContent>
+        </Card>
       </div>
 
       <Card>
@@ -125,7 +183,7 @@ export const ProblemManagement = () => {
             </div>
 
             <div>
-              <label className="text-sm font-medium">Categoria</label>
+              <label className="text-sm font-medium">Tipo</label>
               <Select value={filter.categoria} onValueChange={(value) => setFilter({ ...filter, categoria: value })}>
                 <SelectTrigger>
                   <SelectValue />
@@ -143,7 +201,7 @@ export const ProblemManagement = () => {
             </div>
 
             <div>
-              <label className="text-sm font-medium">Gravidade</label>
+              <label className="text-sm font-medium">Prioridade</label>
               <Select value={filter.gravidade} onValueChange={(value) => setFilter({ ...filter, gravidade: value })}>
                 <SelectTrigger>
                   <SelectValue />
@@ -165,7 +223,7 @@ export const ProblemManagement = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <AlertTriangle className="h-5 w-5" />
-            Problemas ({filteredProblems.length})
+            Ocorrencias ({filteredProblems.length})
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -174,6 +232,7 @@ export const ProblemManagement = () => {
               const status = normalizeProblemStatus(problem.status);
               const vehicle = data.vehicles.find((item) => item.id === problem.vehicleId);
               const driver = data.drivers.find((item) => item.id === problem.driverId);
+              const route = getLinkedRoute(problem, data.routes);
               const selectedKey = problem.firestoreId || problem.id;
               const isSelected = selectedProblemId === selectedKey;
               const hasLocation = typeof problem.location?.latitude === "number" && typeof problem.location?.longitude === "number";
@@ -187,9 +246,9 @@ export const ProblemManagement = () => {
                       <div className="flex flex-wrap items-center gap-2 mb-2">
                         <AlertTriangle className="h-4 w-4" />
                         <Badge variant={getGravidadeVariant(problem.gravidade)} className={getGravidadeClassName(problem.gravidade)}>
-                          {problem.gravidade.toUpperCase()}
+                          {PROBLEM_PRIORITY_LABELS[problem.gravidade]}
                         </Badge>
-                        <Badge variant="outline">{problem.categoria}</Badge>
+                        <Badge variant="outline">{PROBLEM_CATEGORY_LABELS[problem.categoria]}</Badge>
                         <Badge variant={isProblemOpen(status) ? "destructive" : "secondary"}>
                           {PROBLEM_STATUS_LABELS[status]}
                         </Badge>
@@ -207,13 +266,17 @@ export const ProblemManagement = () => {
                           Motorista: {driver?.nome || "Nao encontrado"}
                         </div>
                         <div className="flex items-center gap-1">
+                          <RouteIcon className="h-3 w-3" />
+                          Rota: {route ? `${route.status === "active" ? "Ativa" : "Finalizada"} #${route.id || route.firestoreId}` : "Nao vinculada"}
+                        </div>
+                        <div className="flex items-center gap-1">
                           <Clock className="h-3 w-3" />
-                          Relatado: {formatDateTime(problem.createdAt)}
+                          Relatada: {formatDateTime(problem.createdAt)}
                         </div>
                         {problem.resolvedAt && (
                           <div className="flex items-center gap-1">
                             <CheckCircle className="h-3 w-3" />
-                            Resolvido: {formatDateTime(problem.resolvedAt)}
+                            Resolvida: {formatDateTime(problem.resolvedAt)}
                           </div>
                         )}
                         {hasLocation && (
@@ -225,19 +288,25 @@ export const ProblemManagement = () => {
                       </div>
 
                       {isSelected && (
-                        <div className="mt-3 rounded border bg-muted/40 p-3 text-sm text-muted-foreground">
-                          <div>Status atual: {PROBLEM_STATUS_LABELS[status]}</div>
-                          <div>ID Firestore: {problem.firestoreId || "pendente"}</div>
+                        <div className="mt-3 grid gap-2 rounded border bg-muted/40 p-3 text-sm text-muted-foreground md:grid-cols-2">
+                          <div>Status: {PROBLEM_STATUS_LABELS[status]}</div>
+                          <div>Prioridade: {PROBLEM_PRIORITY_LABELS[problem.gravidade]}</div>
+                          <div>Tipo: {PROBLEM_CATEGORY_LABELS[problem.categoria]}</div>
                           <div>Empresa: {problem.companyId || companyId}</div>
+                          <div>Veiculo: {vehicle?.numeroRegistro || problem.vehicleId}</div>
+                          <div>Motorista: {driver?.nome || problem.driverId}</div>
+                          <div>Rota: {route ? `${route.status} (${route.firestoreId || route.id})` : "Nao vinculada"}</div>
                           <div>Sincronizacao: {syncStatus}</div>
+                          <div>ID Firestore: {problem.firestoreId || "pendente"}</div>
+                          <div>Criada em: {formatDateTime(problem.createdAt)}</div>
                           {hasLocation && (
-                            <div>
+                            <div className="md:col-span-2">
                               GPS: {problem.location?.latitude.toFixed(6)}, {problem.location?.longitude.toFixed(6)}
                               {problem.location?.accuracy ? ` (${Math.round(problem.location.accuracy)}m)` : ""}
                             </div>
                           )}
                           {!hasLocation && problem.locationError && (
-                            <div>GPS: {problem.locationError.message}</div>
+                            <div className="md:col-span-2">GPS: {problem.locationError.message}</div>
                           )}
                         </div>
                       )}
@@ -289,25 +358,9 @@ export const ProblemManagement = () => {
 
             {filteredProblems.length === 0 && (
               <div className="text-center text-muted-foreground py-8">
-                {filter.status === "todos" ? "Nenhum problema encontrado" : `Nenhum problema ${filter.status} encontrado`}
+                Nenhuma ocorrencia encontrada
               </div>
             )}
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Integracao com App do Motorista</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-sm text-muted-foreground space-y-2">
-            <p>
-              <strong>Origem dos dados:</strong> as ocorrencias agora sao lidas e atualizadas em tempo real pela collection /issues no Firestore.
-            </p>
-            <p>
-              <strong>Vinculos:</strong> cada ocorrencia fica ligada ao motorista, ao veiculo e ao companyId para manter o historico da frota.
-            </p>
           </div>
         </CardContent>
       </Card>
