@@ -1,4 +1,5 @@
 import type { DriverStatus } from '@/constants/driverStatus';
+import type { GeoPointFailure, GeoPointSnapshot } from '@/utils/geolocation';
 
 export type ProblemCategory = 'eletrica' | 'mecanica' | 'funilaria' | 'limpeza' | 'pneus' | 'outros';
 export type ProblemSeverity = 'baixa' | 'media' | 'alta' | 'critica';
@@ -15,10 +16,14 @@ export interface MobileDriver {
 
 export interface TripSession {
   id: string;
+  routeId?: string;
+  tripId?: string;
   vehicleNumber: string;
   driverNumber: string;
   startTime: string;
   endTime?: string;
+  startLocation?: GeoPointSnapshot | null;
+  startLocationError?: GeoPointFailure | null;
   isActive: boolean;
 }
 
@@ -30,12 +35,14 @@ export interface ProblemReport {
   gravidade: ProblemSeverity;
   observacao: string;
   reportedAt: string;
+  location?: GeoPointSnapshot | null;
+  locationError?: GeoPointFailure | null;
   images?: string[];
 }
 
 export type OfflineAction =
-  | { type: 'saida'; data: { vehicleNumber: string; driverNumber: string }; timestamp: string }
-  | { type: 'retorno'; data: { vehicleNumber: string; driverNumber: string; problems: ProblemReport[] }; timestamp: string }
+  | { type: 'saida'; data: { vehicleNumber: string; driverNumber: string; location?: GeoPointSnapshot | null; locationError?: GeoPointFailure | null }; timestamp: string }
+  | { type: 'retorno'; data: { vehicleNumber: string; driverNumber: string; problems: ProblemReport[]; location?: GeoPointSnapshot | null; locationError?: GeoPointFailure | null }; timestamp: string }
   | { type: 'problema'; data: ProblemReport; timestamp: string };
 
 export interface APIResponse<T = unknown> {

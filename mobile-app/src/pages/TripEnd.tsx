@@ -8,6 +8,7 @@ import { MobileLayout } from '../components/MobileLayout';
 import { mobileStorage } from '../utils/storage';
 import { mobileAPI } from '../services/api';
 import { ProblemReport } from '../types/mobile';
+import { captureCurrentLocation } from '@/utils/geolocation';
 
 interface TripEndProps {
   onTripEnded: () => void;
@@ -33,10 +34,15 @@ export const TripEnd = ({ onTripEnded, onReportProblem, onBack }: TripEndProps) 
     setError('');
 
     try {
+      const locationResult = await captureCurrentLocation();
       const response = await mobileAPI.registrarRetorno(
         currentTrip.vehicleNumber,
         driver.numeroRegistro,
-        pendingProblems
+        pendingProblems,
+        {
+          location: locationResult.location,
+          locationError: locationResult.error,
+        },
       );
       
       if (response.success) {
@@ -50,13 +56,15 @@ export const TripEnd = ({ onTripEnded, onReportProblem, onBack }: TripEndProps) 
     } catch (error) {
       setError('Erro de conexão. Dados salvos localmente.');
       
-      // Salvar offline
+      const locationResult = await captureCurrentLocation();
       mobileStorage.addToOfflineQueue({
         type: 'retorno',
         data: {
           vehicleNumber: currentTrip.vehicleNumber,
           driverNumber: driver.numeroRegistro,
           problems: pendingProblems,
+          location: locationResult.location,
+          locationError: locationResult.error,
         },
         timestamp: new Date().toISOString(),
       });

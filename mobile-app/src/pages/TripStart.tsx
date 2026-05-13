@@ -10,6 +10,7 @@ import { mobileStorage } from '../utils/storage';
 import { mobileAPI } from '../services/api';
 import { TripSession } from '../types/mobile';
 import { getFleetData, normalizeRegistration } from '@/utils/localStorage';
+import { captureCurrentLocation } from '@/utils/geolocation';
 
 interface TripStartProps {
   onTripStarted: () => void;
@@ -20,22 +21,22 @@ export const TripStart = ({ onTripStarted, onBack }: TripStartProps) => {
   const [vehicleNumber, setVehicleNumber] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  
+
   const driver = mobileStorage.getCurrentDriver();
   const vehicles = getFleetData().vehicles;
 
   const handleStartTrip = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const normalizedVehicleNumber = normalizeRegistration(vehicleNumber);
 
     if (!normalizedVehicleNumber) {
-      setError('Digite o número do veículo');
+      setError('Digite o numero do veiculo');
       return;
     }
 
     if (!driver) {
-      setError('Erro: dados do motorista não encontrados');
+      setError('Erro: dados do motorista nao encontrados');
       return;
     }
 
@@ -43,45 +44,60 @@ export const TripStart = ({ onTripStarted, onBack }: TripStartProps) => {
     setError('');
 
     try {
+      const locationResult = await captureCurrentLocation();
       const response = await mobileAPI.registrarSaida(
         normalizedVehicleNumber,
-        driver.numeroRegistro
+        driver.numeroRegistro,
+        {
+          location: locationResult.location,
+          locationError: locationResult.error,
+        },
       );
-      
+
       if (response.success) {
-        // Criar sessão da viagem
         const tripSession: TripSession = {
           id: `trip_${Date.now()}`,
+          routeId: response.data?.routeId,
+          tripId: response.data?.tripId,
           vehicleNumber: normalizedVehicleNumber,
           driverNumber: driver.numeroRegistro,
           startTime: new Date().toISOString(),
+          startLocation: response.data?.startLocation || locationResult.location,
+          startLocationError: response.data?.startLocationError || locationResult.error,
           isActive: true,
         };
-        
+
         mobileStorage.setCurrentTrip(tripSession);
         onTripStarted();
       } else {
-        setError(response.message || 'Erro ao registrar saída');
+        setError(response.message || 'Erro ao registrar saida');
       }
     } catch (error) {
-      setError('Erro de conexão. Dados salvos localmente.');
-      
-      // Salvar offline
+      setError('Erro de conexao. Dados salvos localmente.');
+
+      const locationResult = await captureCurrentLocation();
       const tripSession: TripSession = {
         id: `trip_${Date.now()}`,
         vehicleNumber: normalizedVehicleNumber,
         driverNumber: driver.numeroRegistro,
         startTime: new Date().toISOString(),
+        startLocation: locationResult.location,
+        startLocationError: locationResult.error,
         isActive: true,
       };
-      
+
       mobileStorage.setCurrentTrip(tripSession);
       mobileStorage.addToOfflineQueue({
         type: 'saida',
-        data: { vehicleNumber: normalizedVehicleNumber, driverNumber: driver.numeroRegistro },
+        data: {
+          vehicleNumber: normalizedVehicleNumber,
+          driverNumber: driver.numeroRegistro,
+          location: locationResult.location,
+          locationError: locationResult.error,
+        },
         timestamp: new Date().toISOString(),
       });
-      
+
       onTripStarted();
     } finally {
       setIsLoading(false);
@@ -89,9 +105,9 @@ export const TripStart = ({ onTripStarted, onBack }: TripStartProps) => {
   };
 
   return (
-    <MobileLayout 
-      title="Iniciar Viagem" 
-      showBackButton 
+    <MobileLayout
+      title="Iniciar Viagem"
+      showBackButton
       onBack={onBack}
     >
       <div className="max-w-md mx-auto mt-8">
@@ -100,16 +116,16 @@ export const TripStart = ({ onTripStarted, onBack }: TripStartProps) => {
             <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-4">
               <MapPin className="h-6 w-6 text-primary" />
             </div>
-            <CardTitle>Registrar Saída</CardTitle>
+            <CardTitle>Registrar Saida</CardTitle>
             <CardDescription>
-              Digite o número do veículo para iniciar a viagem
+              Digite o numero do veiculo para iniciar a viagem
             </CardDescription>
           </CardHeader>
 
           <CardContent>
             <form onSubmit={handleStartTrip} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="vehicleNumber">Número do Veículo</Label>
+                <Label htmlFor="vehicleNumber">Numero do Veiculo</Label>
                 <Input
                   id="vehicleNumber"
                   type="text"
@@ -139,9 +155,9 @@ export const TripStart = ({ onTripStarted, onBack }: TripStartProps) => {
               )}
 
               <div className="space-y-3">
-                <Button 
-                  type="submit" 
-                  className="w-full" 
+                <Button
+                  type="submit"
+                  className="w-full"
                   disabled={isLoading}
                   size="lg"
                 >
@@ -158,10 +174,10 @@ export const TripStart = ({ onTripStarted, onBack }: TripStartProps) => {
                   )}
                 </Button>
 
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  className="w-full" 
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
                   onClick={onBack}
                   disabled={isLoading}
                 >
@@ -175,7 +191,7 @@ export const TripStart = ({ onTripStarted, onBack }: TripStartProps) => {
                 <p className="font-medium">Motorista: {driver?.nome}</p>
                 <p className="text-muted-foreground">Registro: {driver?.numeroRegistro}</p>
                 <p className="text-xs text-muted-foreground">
-                  Horário: {new Date().toLocaleString()}
+                  Horario: {new Date().toLocaleString()}
                 </p>
               </div>
             </div>

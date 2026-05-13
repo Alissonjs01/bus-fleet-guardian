@@ -118,6 +118,10 @@ function normalizeProblem(id: string, data: DocumentData): Problem {
     createdAt: toIso(data.createdAt),
     updatedAt: toIso(data.updatedAt),
     resolvedAt: data.resolvedAt ? toIso(data.resolvedAt) : undefined,
+    location: data.location || null,
+    locationError: data.locationError || null,
+    routeId: data.routeId ? Number(data.routeId) : undefined,
+    routeFirestoreId: data.routeFirestoreId || undefined,
   };
 }
 
@@ -148,6 +152,10 @@ function normalizeTrip(id: string, data: DocumentData): Trip {
     driverId: Number(data.driverId || 0),
     saida: data.saida || data.startTime || toIso(data.createdAt),
     retorno: data.retorno || data.endTime,
+    startLocation: data.startLocation || null,
+    startLocationError: data.startLocationError || null,
+    endLocation: data.endLocation || null,
+    endLocationError: data.endLocationError || null,
     problemas: data.problemas || [],
     createdAt: toIso(data.createdAt),
   };
@@ -164,6 +172,10 @@ function normalizeRoute(id: string, data: DocumentData): Route {
     status: data.status || "active",
     startedAt: data.startedAt || toIso(data.createdAt),
     finishedAt: data.finishedAt ? toIso(data.finishedAt) : undefined,
+    startLocation: data.startLocation || null,
+    startLocationError: data.startLocationError || null,
+    endLocation: data.endLocation || null,
+    endLocationError: data.endLocationError || null,
     createdAt: toIso(data.createdAt),
   };
 }

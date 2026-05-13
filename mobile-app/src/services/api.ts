@@ -4,9 +4,38 @@ import { getFleetData, normalizeRegistration, saveFleetData } from "@/utils/loca
 import { ProblemReport, APIResponse, TripHistory } from "../types/mobile";
 import { DRIVER_STATUSES, type DriverStatus } from "@/constants/driverStatus";
 import { getDriverByRegistration } from "@/services/driverService";
+import { captureCurrentLocation, type GeoPointFailure, type GeoPointSnapshot } from "@/utils/geolocation";
 
 type FleetSnapshot = ReturnType<typeof getFleetData>;
 const MOBILE_COMPANY_ID = "demo-company";
+
+type LocationFields = {
+  location?: GeoPointSnapshot | null;
+  locationError?: GeoPointFailure | null;
+};
+
+function locationFields(
+  location: GeoPointSnapshot | null,
+  error: GeoPointFailure | null,
+  locationKey = "location",
+  errorKey = "locationError",
+) {
+  return {
+    [locationKey]: location,
+    [errorKey]: error,
+  };
+}
+
+async function resolveLocation(eventLocation?: LocationFields) {
+  if (eventLocation) {
+    return {
+      location: eventLocation.location || null,
+      error: eventLocation.locationError || null,
+    };
+  }
+
+  return captureCurrentLocation();
+}
 
 class MobileAPIService {
   private findDriver(data: FleetSnapshot, driverNumber: string) {
@@ -72,7 +101,12 @@ class MobileAPIService {
     };
   }
 
-  async registrarSaida(vehicleNumber: string, driverNumber: string): Promise<APIResponse> {
+  async registrarSaida(vehicleNumber: string, driverNumber: string, eventLocation?: LocationFields): Promise<APIResponse<{
+    routeId: string;
+    tripId: string;
+    startLocation: GeoPointSnapshot | null;
+    startLocationError: GeoPointFailure | null;
+  }>> {
     const driver = await getDriverByRegistration(driverNumber, MOBILE_COMPANY_ID);
     const vehicle = await this.getVehicleByNumber(vehicleNumber);
 
@@ -101,6 +135,8 @@ class MobileAPIService {
     }
 
     const now = new Date().toISOString();
+    const capturedLocation = await resolveLocation(eventLocation);
+    const { location, error: locationError } = capturedLocation;
     const batch = writeBatch(db);
     const vehicleId = vehicle.legacyId;
 
@@ -125,6 +161,7 @@ class MobileAPIService {
       driverUserId: driver.userId || null,
       status: "active",
       startedAt: now,
+      ...locationFields(location, locationError, "startLocation", "startLocationError"),
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
@@ -139,6 +176,7 @@ class MobileAPIService {
       startTime: now,
       retorno: null,
       endTime: null,
+      ...locationFields(location, locationError, "startLocation", "startLocationError"),
       problemas: [],
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
@@ -146,10 +184,19 @@ class MobileAPIService {
 
     await batch.commit();
 
-    return { success: true, message: "Saida registrada com sucesso" };
+    return {
+      success: true,
+      message: "Saida registrada com sucesso",
+      data: {
+        routeId: routeRef.id,
+        tripId: tripRef.id,
+        startLocation: location,
+        startLocationError: locationError,
+      },
+    };
   }
 
-  async registrarRetorno(vehicleNumber: string, driverNumber: string, problems: ProblemReport[]): Promise<APIResponse> {
+  async registrarRetorno(vehicleNumber: string, driverNumber: string, problems: ProblemReport[], eventLocation?: LocationFields): Promise<APIResponse> {
     const vehicle = await this.getVehicleByNumber(vehicleNumber);
     const driver = await getDriverByRegistration(driverNumber, MOBILE_COMPANY_ID);
 
@@ -162,6 +209,8 @@ class MobileAPIService {
     }
 
     const now = new Date().toISOString();
+    const capturedLocation = await resolveLocation(eventLocation);
+    const { location, error: locationError } = capturedLocation;
     const batch = writeBatch(db);
     const vehicleId = vehicle.legacyId;
 
@@ -177,6 +226,7 @@ class MobileAPIService {
       batch.update(doc(db, "routes", routeDoc.id), {
         status: "finished",
         finishedAt: now,
+        ...locationFields(location, locationError, "endLocation", "endLocationError"),
         updatedAt: serverTimestamp(),
       });
     });
@@ -194,6 +244,7 @@ class MobileAPIService {
         batch.update(doc(db, "trips", tripDoc.id), {
           retorno: now,
           endTime: now,
+          ...locationFields(location, locationError, "endLocation", "endLocationError"),
           updatedAt: serverTimestamp(),
         });
       });
@@ -224,6 +275,8 @@ class MobileAPIService {
         description: problem.observacao,
         priority: problem.gravidade,
         status: "aberta",
+        location: problem.location || null,
+        locationError: problem.locationError || null,
         createdAt: problem.reportedAt || now,
         updatedAt: serverTimestamp(),
       });
@@ -233,7 +286,7 @@ class MobileAPIService {
     return { success: true, message: "Retorno registrado com sucesso" };
   }
 
-  async reportarProblema(problem: Omit<ProblemReport, "id" | "reportedAt">): Promise<APIResponse> {
+  async reportarProblema(problem: Omit<ProblemReport, "id" | "reportedAt"> & Partial<LocationFields>): Promise<APIResponse> {
     const vehicle = await this.getVehicleByNumber(problem.vehicleNumber);
     const driver = await getDriverByRegistration(problem.driverNumber, MOBILE_COMPANY_ID);
 
@@ -246,6 +299,18 @@ class MobileAPIService {
     }
 
     const now = new Date().toISOString();
+    const capturedLocation = problem.location !== undefined || problem.locationError !== undefined
+      ? { location: problem.location || null, error: problem.locationError || null }
+      : await captureCurrentLocation();
+    const { location, error: locationError } = capturedLocation;
+    const activeRoutes = await getDocs(query(
+      collection(db, "routes"),
+      where("companyId", "==", MOBILE_COMPANY_ID),
+      where("vehicleId", "==", vehicle.legacyId),
+      where("driverId", "==", driver.id),
+      where("status", "==", "active"),
+    ));
+    const activeRoute = activeRoutes.docs[0];
     const batch = writeBatch(db);
     batch.update(doc(db, "vehicles", vehicle.id), {
       status: "manutencao",
@@ -256,6 +321,8 @@ class MobileAPIService {
       legacyId: Date.now(),
       vehicleId: vehicle.legacyId,
       driverId: driver.id,
+      routeId: Number(activeRoute?.data().legacyId || 0) || null,
+      routeFirestoreId: activeRoute?.id || null,
       categoria: problem.categoria,
       gravidade: problem.gravidade,
       observacao: problem.observacao,
@@ -263,6 +330,8 @@ class MobileAPIService {
       description: problem.observacao,
       priority: problem.gravidade,
       status: "aberta",
+      location,
+      locationError,
       createdAt: now,
       updatedAt: serverTimestamp(),
     });

@@ -4,11 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Problem } from "@/types/fleet";
-import { AlertTriangle, CheckCircle, Clock, User, Car, Eye } from "lucide-react";
+import { AlertTriangle, CheckCircle, Clock, User, Car, Eye, MapPin } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatDateTime } from "@/utils/dateFormat";
 import { useFleetData } from "@/hooks/useFleetData";
 import { isProblemOpen, normalizeProblemStatus, updateProblem } from "@/services/fleetService";
+import { getMapUrl } from "@/utils/geolocation";
 
 const PROBLEM_STATUS_LABELS: Record<Problem["status"], string> = {
   aberta: "Aberta",
@@ -175,6 +176,7 @@ export const ProblemManagement = () => {
               const driver = data.drivers.find((item) => item.id === problem.driverId);
               const selectedKey = problem.firestoreId || problem.id;
               const isSelected = selectedProblemId === selectedKey;
+              const hasLocation = typeof problem.location?.latitude === "number" && typeof problem.location?.longitude === "number";
 
               return (
                 <div key={selectedKey} className={`p-4 border rounded-lg ${
@@ -214,6 +216,12 @@ export const ProblemManagement = () => {
                             Resolvido: {formatDateTime(problem.resolvedAt)}
                           </div>
                         )}
+                        {hasLocation && (
+                          <div className="flex items-center gap-1">
+                            <MapPin className="h-3 w-3" />
+                            Localizacao registrada
+                          </div>
+                        )}
                       </div>
 
                       {isSelected && (
@@ -222,6 +230,15 @@ export const ProblemManagement = () => {
                           <div>ID Firestore: {problem.firestoreId || "pendente"}</div>
                           <div>Empresa: {problem.companyId || companyId}</div>
                           <div>Sincronizacao: {syncStatus}</div>
+                          {hasLocation && (
+                            <div>
+                              GPS: {problem.location?.latitude.toFixed(6)}, {problem.location?.longitude.toFixed(6)}
+                              {problem.location?.accuracy ? ` (${Math.round(problem.location.accuracy)}m)` : ""}
+                            </div>
+                          )}
+                          {!hasLocation && problem.locationError && (
+                            <div>GPS: {problem.locationError.message}</div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -246,6 +263,14 @@ export const ProblemManagement = () => {
                         <Button size="sm" variant="outline" onClick={() => handleStatusChange(problem, "resolvida")} disabled={isSaving}>
                           <CheckCircle className="h-4 w-4 mr-1" />
                           Resolver
+                        </Button>
+                      )}
+                      {hasLocation && problem.location && (
+                        <Button size="sm" variant="outline" asChild>
+                          <a href={getMapUrl(problem.location)} target="_blank" rel="noreferrer">
+                            <MapPin className="h-4 w-4 mr-1" />
+                            Mapa
+                          </a>
                         </Button>
                       )}
                       <Button

@@ -11,6 +11,7 @@ import { MobileLayout } from '../components/MobileLayout';
 import { mobileStorage } from '../utils/storage';
 import { mobileAPI } from '../services/api';
 import { ProblemCategory, ProblemReport as ProblemReportType, ProblemSeverity } from '../types/mobile';
+import { captureCurrentLocation } from '@/utils/geolocation';
 
 interface ProblemReportProps {
   onProblemReported: () => void;
@@ -60,12 +61,15 @@ export const ProblemReport = ({ onProblemReported, onBack }: ProblemReportProps)
     setError('');
 
     try {
+      const locationResult = await captureCurrentLocation();
       const problemData: Omit<ProblemReportType, 'id' | 'reportedAt'> = {
         vehicleNumber: currentTrip.vehicleNumber,
         driverNumber: driver.numeroRegistro,
         categoria,
         gravidade,
         observacao: observacao.trim(),
+        location: locationResult.location,
+        locationError: locationResult.error,
       };
 
       const response = await mobileAPI.reportarProblema(problemData);
@@ -80,7 +84,7 @@ export const ProblemReport = ({ onProblemReported, onBack }: ProblemReportProps)
         setError(response.message || 'Erro ao reportar problema');
       }
     } catch (error) {
-      // Salvar localmente se offline
+      const locationResult = await captureCurrentLocation();
       const problem: ProblemReportType = {
         id: `problem_${Date.now()}`,
         vehicleNumber: currentTrip.vehicleNumber,
@@ -88,6 +92,8 @@ export const ProblemReport = ({ onProblemReported, onBack }: ProblemReportProps)
         categoria,
         gravidade,
         observacao: observacao.trim(),
+        location: locationResult.location,
+        locationError: locationResult.error,
         reportedAt: new Date().toISOString(),
       };
       

@@ -1,5 +1,6 @@
 import type { DriverStatus } from "@/constants/driverStatus";
 import type { VehicleType } from "@/constants/vehicleTypes";
+import type { GeoPointFailure, GeoPointSnapshot } from "@/utils/geolocation";
 
 export interface Vehicle {
   id: number;
@@ -45,6 +46,10 @@ export interface Problem {
   createdAt: string;
   updatedAt?: string;
   resolvedAt?: string;
+  location?: GeoPointSnapshot | null;
+  locationError?: GeoPointFailure | null;
+  routeId?: number;
+  routeFirestoreId?: string;
 }
 
 export interface Revision {
@@ -70,6 +75,10 @@ export interface Trip {
   driverId: number;
   saida: string;
   retorno?: string;
+  startLocation?: GeoPointSnapshot | null;
+  startLocationError?: GeoPointFailure | null;
+  endLocation?: GeoPointSnapshot | null;
+  endLocationError?: GeoPointFailure | null;
   problemas: Problem[];
   createdAt: string;
 }
@@ -84,6 +93,10 @@ export interface Route {
   status: 'active' | 'finished' | 'canceled';
   startedAt: string;
   finishedAt?: string;
+  startLocation?: GeoPointSnapshot | null;
+  startLocationError?: GeoPointFailure | null;
+  endLocation?: GeoPointSnapshot | null;
+  endLocationError?: GeoPointFailure | null;
   createdAt: string;
 }
 
