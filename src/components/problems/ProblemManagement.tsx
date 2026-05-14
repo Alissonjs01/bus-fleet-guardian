@@ -34,13 +34,6 @@ const PROBLEM_PRIORITY_LABELS: Record<Problem["gravidade"], string> = {
   critica: "Critica",
 };
 
-const SYNC_STATUS_LABELS: Record<string, string> = {
-  synced: "Sincronizado",
-  syncing: "Sincronizando",
-  offline: "Offline",
-  error: "Erro",
-};
-
 function getLinkedRoute(problem: Problem, routes: Route[]) {
   return routes.find((route) => {
     if (problem.routeFirestoreId && route.firestoreId === problem.routeFirestoreId) return true;
@@ -58,8 +51,7 @@ export const ProblemManagement = () => {
   const [selectedProblemId, setSelectedProblemId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
-  const { data, loading, companyId, syncStatus } = useFleetData();
-  const syncStatusLabel = SYNC_STATUS_LABELS[syncStatus.state] || "Sincronizado";
+  const { data, loading, companyId } = useFleetData();
 
   const handleStatusChange = async (problem: Problem, status: Problem["status"]) => {
     if (isSaving) return;
@@ -399,10 +391,6 @@ export const ProblemManagement = () => {
                         <div className="rounded-md border p-3">
                           <div className="text-muted-foreground">Criada em</div>
                           <div className="font-medium">{formatDateTime(problem.createdAt)}</div>
-                        </div>
-                        <div className="rounded-md border p-3">
-                          <div className="text-muted-foreground">Sincronizacao</div>
-                          <div className="font-medium">{syncStatusLabel}</div>
                         </div>
                         <div className="rounded-md border p-3">
                           <div className="text-muted-foreground">Firestore</div>

@@ -31,11 +31,3 @@ export interface BootstrapAdminResult {
   email?: string;
   error?: string;
 }
-
-export interface SyncStatus {
-  state: "online" | "offline" | "syncing" | "synced" | "error";
-  isOnline: boolean;
-  pendingWrites: boolean;
-  lastSyncedAt: Date | null;
-  error?: string;
-}

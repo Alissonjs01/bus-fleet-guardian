@@ -8,12 +8,11 @@ import { Revisions } from "@/components/revisions/Revisions";
 import { Reports } from "@/components/reports/Reports";
 import { Backup } from "@/components/backup/Backup";
 import { useFleetData } from "@/hooks/useFleetData";
-import { SyncStatusBadge } from "@/components/sync/SyncStatusBadge";
 
 const Index = () => {
   const [activeView, setActiveView] = useState("dashboard");
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
-  const { data, syncStatus } = useFleetData();
+  const { data } = useFleetData();
   const dataVersion = [
     data.vehicles.length,
     data.drivers.length,
@@ -55,9 +54,6 @@ const Index = () => {
         onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
       />
       <div className="flex-1 p-6 overflow-auto">
-        <div className="flex justify-end mb-2">
-          <SyncStatusBadge status={syncStatus} />
-        </div>
         <div key={`${activeView}-${dataVersion}`}>
           {renderContent()}
         </div>

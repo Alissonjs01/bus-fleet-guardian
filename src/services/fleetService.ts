@@ -320,7 +320,7 @@ export function subscribeFleetData(
 
         emit();
       },
-      onError,
+      (error) => onError(new Error(`Listener ${COLLECTIONS[key]}: ${error.message}`)),
     );
   });
 

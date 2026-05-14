@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { createCompanyIfMissing, seedInitialFleetData, subscribeFleetData, syncCompanyFleetChanges } from "@/services/fleetService";
+import { createCompanyIfMissing, seedInitialFleetData, subscribeFleetData } from "@/services/fleetService";
 import { getFleetData } from "@/utils/localStorage";
 import type { FleetData } from "@/types/fleet";
-import { useSyncStatus } from "@/hooks/useSyncStatus";
 
 const DEMO_COMPANY_ID = "demo-company";
 
@@ -13,9 +12,6 @@ export function useFleetData(companyIdOverride?: string) {
   const isPublicFleetSession = !user && !!companyIdOverride;
   const [data, setData] = useState<FleetData>(() => getFleetData());
   const [loading, setLoading] = useState(true);
-  const [pendingWrites, setPendingWrites] = useState(false);
-  const [error, setError] = useState<string | undefined>();
-  const syncStatus = useSyncStatus(pendingWrites, error);
   const dataRef = useRef(data);
 
   useEffect(() => {
@@ -34,51 +30,32 @@ export function useFleetData(companyIdOverride?: string) {
     }
 
     setLoading(true);
-    setError(undefined);
 
     const canPrepareCompanyData = !isPublicFleetSession && user?.role === "admin";
 
     if (canPrepareCompanyData) {
       createCompanyIfMissing(activeCompanyId)
         .then(() => seedInitialFleetData(activeCompanyId))
-        .catch((err) => setError(err instanceof Error ? err.message : "Erro ao preparar dados"));
+        .catch((err) => console.warn("[fleet-data] Erro ao preparar dados iniciais:", err));
     }
 
     return subscribeFleetData(
       activeCompanyId,
-      (fleetData, hasPendingWrites) => {
+      (fleetData) => {
         setData(fleetData);
         dataRef.current = fleetData;
-        setPendingWrites(hasPendingWrites);
         setLoading(false);
       },
       (err) => {
-        setError(err.message);
+        console.warn("[fleet-data] Erro em listener realtime:", err);
         setLoading(false);
       },
     );
   }, [activeCompanyId, authLoading, companyIdOverride, isPublicFleetSession, user?.role]);
 
-  useEffect(() => {
-    if (!activeCompanyId) return;
-
-    const handleLocalChange = (event: Event) => {
-      const detail = (event as CustomEvent<FleetData>).detail;
-      if (!detail) return;
-      syncCompanyFleetChanges(activeCompanyId, dataRef.current, detail).catch((err) => {
-        setError(err instanceof Error ? err.message : "Erro ao sincronizar alterações");
-      });
-    };
-
-    window.addEventListener("fleet-cache-updated", handleLocalChange);
-    return () => window.removeEventListener("fleet-cache-updated", handleLocalChange);
-  }, [activeCompanyId]);
-
   return {
     data,
     loading,
-    error,
-    syncStatus,
     companyId: activeCompanyId || DEMO_COMPANY_ID,
     userId: user?.id || "",
   };
