@@ -5,10 +5,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Vehicle, FleetData } from "@/types/fleet";
 import { normalizeRegistration } from "@/utils/localStorage";
 import { VEHICLE_TYPES, VEHICLE_TYPE_OPTIONS, getVehicleTypeIcon, getVehicleTypeLabel, normalizeVehicleType } from "@/constants/vehicleTypes";
-import { Car, Plus, Edit, Trash2, Activity, Wrench, Home } from "lucide-react";
+import { Car, Plus, Edit, Trash2, Activity, Wrench, Home, History } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useFleetData } from "@/hooks/useFleetData";
 import { deleteVehicle, isProblemOpen, upsertVehicle } from "@/services/fleetService";
@@ -24,6 +25,7 @@ export const VehicleManagement = () => {
   });
   const [typeFilter, setTypeFilter] = useState<Vehicle["tipo"] | "todos">("todos");
   const [isSaving, setIsSaving] = useState(false);
+  const [historyVehicle, setHistoryVehicle] = useState<Vehicle | null>(null);
   const { toast } = useToast();
   const { data: realtimeData, loading, companyId } = useFleetData();
 
@@ -168,9 +170,46 @@ export const VehicleManagement = () => {
     }
   };
 
+  const getRouteStatusLabel = (status: string) => {
+    switch (status) {
+      case "active": return "Em rota";
+      case "finished": return "Finalizada";
+      case "canceled": return "Cancelada";
+      default: return "Registrada";
+    }
+  };
+
+  const getHistoryDayLabel = (value: string) => {
+    const date = new Date(value);
+    const today = new Date();
+    const yesterday = new Date();
+    yesterday.setDate(today.getDate() - 1);
+
+    const sameDay = (a: Date, b: Date) =>
+      a.getFullYear() === b.getFullYear() &&
+      a.getMonth() === b.getMonth() &&
+      a.getDate() === b.getDate();
+
+    if (sameDay(date, today)) return "Hoje";
+    if (sameDay(date, yesterday)) return "Ontem";
+    return date.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+  };
+
+  const getTime = (value?: string) => {
+    if (!value) return "--:--";
+    return new Date(value).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  };
+
   const filteredVehicles = typeFilter === "todos"
     ? data.vehicles
     : data.vehicles.filter((vehicle) => normalizeVehicleType(vehicle.vehicleType || vehicle.tipo) === typeFilter);
+
+  const selectedVehicleRoutes = historyVehicle
+    ? data.routes
+      .filter((route) => route.vehicleId === historyVehicle.id)
+      .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime())
+      .slice(0, 12)
+    : [];
 
   return (
     <div className="space-y-6">
@@ -300,6 +339,14 @@ export const VehicleManagement = () => {
                       <Button
                         size="sm"
                         variant="outline"
+                        onClick={() => setHistoryVehicle(vehicle)}
+                      >
+                        <History className="h-4 w-4 mr-1" />
+                        Historico
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
                         onClick={() => handleEdit(vehicle)}
                       >
                         <Edit className="h-4 w-4" />
@@ -329,6 +376,45 @@ export const VehicleManagement = () => {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={!!historyVehicle} onOpenChange={(open) => !open && setHistoryVehicle(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Historico do Veiculo {historyVehicle?.numeroRegistro}</DialogTitle>
+            <DialogDescription>
+              Ultimas utilizacoes registradas pelas rotas do mobile
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            {selectedVehicleRoutes.map((route) => {
+              const driver = data.drivers.find((item) => item.id === route.driverId);
+              return (
+                <div key={route.firestoreId || route.id} className="rounded-lg border p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-medium">{getHistoryDayLabel(route.startedAt)}</div>
+                      <div className="mt-1 font-semibold">{driver?.nome || "Motorista nao encontrado"}</div>
+                      <div className="text-sm text-muted-foreground">
+                        {getTime(route.startedAt)} - {route.finishedAt ? getTime(route.finishedAt) : "em andamento"}
+                      </div>
+                    </div>
+                    <Badge variant={route.status === "active" ? "default" : "secondary"}>
+                      {getRouteStatusLabel(route.status)}
+                    </Badge>
+                  </div>
+                </div>
+              );
+            })}
+
+            {selectedVehicleRoutes.length === 0 && (
+              <div className="rounded-lg border p-6 text-center text-sm text-muted-foreground">
+                Nenhuma utilizacao registrada para este veiculo.
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
