@@ -206,6 +206,23 @@ export const VehicleManagement = () => {
     return new Date(value).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
   };
 
+  const getUsageDuration = (startedAt: string, finishedAt?: string) => {
+    const startTime = new Date(startedAt).getTime();
+    const endTime = finishedAt ? new Date(finishedAt).getTime() : Date.now();
+
+    if (!Number.isFinite(startTime) || !Number.isFinite(endTime) || endTime < startTime) {
+      return finishedAt ? "Tempo indisponivel" : "Em andamento";
+    }
+
+    const totalMinutes = Math.max(0, Math.floor((endTime - startTime) / 60000));
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+
+    if (hours === 0) return `${minutes}min${finishedAt ? "" : " em andamento"}`;
+    if (minutes === 0) return `${hours}h${finishedAt ? "" : " em andamento"}`;
+    return `${hours}h ${minutes}min${finishedAt ? "" : " em andamento"}`;
+  };
+
   const filteredVehicles = typeFilter === "todos"
     ? data.vehicles
     : data.vehicles.filter((vehicle) => normalizeVehicleType(vehicle.vehicleType || vehicle.tipo) === typeFilter);
@@ -405,6 +422,9 @@ export const VehicleManagement = () => {
                       <div className="mt-1 font-semibold">{driver?.nome || "Motorista nao encontrado"}</div>
                       <div className="text-sm text-muted-foreground">
                         {getTime(route.startedAt)} - {route.finishedAt ? getTime(route.finishedAt) : "em andamento"}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Tempo total: {getUsageDuration(route.startedAt, route.finishedAt)}
                       </div>
                     </div>
                     <Badge variant={route.status === "active" ? "default" : "secondary"}>
