@@ -48,12 +48,14 @@ export function MobileGate({ onComplete }: MobileGateProps) {
   const [answerCm, setAnswerCm] = useState(14);
   const [isSaving, setIsSaving] = useState(false);
   const [statusText, setStatusText] = useState("");
-  const reaction = getFootReaction(answerCm);
+  const [confirmedReaction, setConfirmedReaction] = useState<ReturnType<typeof getFootReaction> | null>(null);
 
   const handleConfirm = async () => {
     if (isSaving) return;
+    const reaction = getFootReaction(answerCm);
     setIsSaving(true);
-    setStatusText(`${reaction.title}... Validando biometria.`);
+    setConfirmedReaction(reaction);
+    setStatusText("Validando biometria...");
 
     try {
       await addDoc(collection(db, "mobileGateAnswers"), {
@@ -69,7 +71,7 @@ export function MobileGate({ onComplete }: MobileGateProps) {
       window.setTimeout(() => {
         setIsSaving(false);
         onComplete();
-      }, 900);
+      }, 3000);
     }
   };
 
@@ -99,11 +101,13 @@ export function MobileGate({ onComplete }: MobileGateProps) {
               disabled={isSaving}
             />
 
-            <div className="rounded-lg border border-border bg-muted/40 p-4 text-center">
-              <div className="text-3xl font-bold">{reaction.face}</div>
-              <div className="mt-1 font-semibold">{reaction.title}</div>
-              <div className="mt-1 text-sm text-muted-foreground">{reaction.text}</div>
-            </div>
+            {confirmedReaction && (
+              <div className="rounded-lg border border-border bg-muted/40 p-4 text-center">
+                <div className="text-3xl font-bold">{confirmedReaction.face}</div>
+                <div className="mt-1 font-semibold">{confirmedReaction.title}</div>
+                <div className="mt-1 text-sm text-muted-foreground">{confirmedReaction.text}</div>
+              </div>
+            )}
 
             {statusText && (
               <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
