@@ -1,13 +1,30 @@
 import { collection, doc, getDocs, query, serverTimestamp, where, writeBatch } from "firebase/firestore";
 import { db } from "@/integrations/firebase/client";
 import { getFleetData, normalizeRegistration, saveFleetData } from "@/utils/localStorage";
-import { ProblemReport, APIResponse, TripHistory } from "../types/mobile";
+import { ActiveRouteSession, ProblemReport, APIResponse, TripHistory } from "../types/mobile";
 import { DRIVER_STATUSES, type DriverStatus } from "@/constants/driverStatus";
 import { getDriverByRegistration } from "@/services/driverService";
 import { captureCurrentLocation, type GeoPointFailure, type GeoPointSnapshot } from "@/utils/geolocation";
 
 type FleetSnapshot = ReturnType<typeof getFleetData>;
 const MOBILE_COMPANY_ID = "demo-company";
+
+function toMillis(value: unknown): number {
+  if (!value) return 0;
+  if (typeof value === "string") return new Date(value).getTime();
+  if (typeof value === "object" && value && "toMillis" in value && typeof value.toMillis === "function") {
+    return value.toMillis();
+  }
+  if (typeof value === "object" && value && "seconds" in value && typeof value.seconds === "number") {
+    return value.seconds * 1000;
+  }
+  return 0;
+}
+
+function toIso(value: unknown): string {
+  const millis = toMillis(value);
+  return Number.isFinite(millis) && millis > 0 ? new Date(millis).toISOString() : new Date().toISOString();
+}
 
 type LocationFields = {
   location?: GeoPointSnapshot | null;
@@ -56,13 +73,21 @@ class MobileAPIService {
       where("numeroRegistro", "==", normalizedVehicleNumber),
     ));
 
-    const snapshot = byRegistration.empty
+    const byPlate = byRegistration.empty
       ? await getDocs(query(
         collection(db, "vehicles"),
         where("companyId", "==", MOBILE_COMPANY_ID),
         where("plate", "==", normalizedVehicleNumber),
       ))
       : byRegistration;
+
+    const snapshot = byPlate.empty && Number.isFinite(Number(normalizedVehicleNumber))
+      ? await getDocs(query(
+        collection(db, "vehicles"),
+        where("companyId", "==", MOBILE_COMPANY_ID),
+        where("legacyId", "==", Number(normalizedVehicleNumber)),
+      ))
+      : byPlate;
 
     const vehicleDoc = snapshot.docs[0];
     if (!vehicleDoc) return null;
@@ -76,7 +101,64 @@ class MobileAPIService {
     };
   }
 
-  async login(numeroRegistro: string): Promise<APIResponse<{ nome: string; firestoreId?: string; companyId?: string; status?: DriverStatus }>> {
+  private async getVehicleByLegacyId(vehicleId: number) {
+    const snapshot = await getDocs(query(
+      collection(db, "vehicles"),
+      where("companyId", "==", MOBILE_COMPANY_ID),
+      where("legacyId", "==", vehicleId),
+    ));
+
+    const vehicleDoc = snapshot.docs[0];
+    if (!vehicleDoc) return null;
+
+    const vehicle = vehicleDoc.data();
+    return {
+      id: vehicleDoc.id,
+      number: String(vehicle.numeroRegistro || vehicle.plate || vehicleId),
+      data: vehicle,
+    };
+  }
+
+  private async getActiveRouteForDriver(driverId: number, driverNumber: string): Promise<ActiveRouteSession | null> {
+    const activeRoutes = await getDocs(query(
+      collection(db, "routes"),
+      where("companyId", "==", MOBILE_COMPANY_ID),
+      where("driverId", "==", driverId),
+      where("status", "==", "active"),
+    ));
+
+    const routeDoc = activeRoutes.docs
+      .map((item) => ({ id: item.id, data: item.data() }))
+      .sort((a, b) => toMillis(b.data.startedAt || b.data.createdAt) - toMillis(a.data.startedAt || a.data.createdAt))[0];
+
+    if (!routeDoc) return null;
+
+    const route = routeDoc.data;
+    const vehicleId = Number(route.vehicleId || 0);
+    const vehicle = await this.getVehicleByLegacyId(vehicleId);
+    const driverTrips = await getDocs(query(
+      collection(db, "trips"),
+      where("companyId", "==", MOBILE_COMPANY_ID),
+      where("driverId", "==", driverId),
+      where("vehicleId", "==", vehicleId),
+    ));
+    const activeTrip = driverTrips.docs.find((item) => {
+      const trip = item.data();
+      return !trip.retorno && !trip.endTime;
+    });
+
+    return {
+      routeId: routeDoc.id,
+      tripId: activeTrip?.id,
+      vehicleNumber: vehicle?.number || String(vehicleId),
+      driverNumber,
+      startTime: toIso(route.startedAt || route.createdAt),
+      startLocation: route.startLocation || null,
+      startLocationError: route.startLocationError || null,
+    };
+  }
+
+  async login(numeroRegistro: string): Promise<APIResponse<{ nome: string; firestoreId?: string; companyId?: string; status?: DriverStatus; activeRoute?: ActiveRouteSession }>> {
     const driver = await getDriverByRegistration(numeroRegistro);
 
     if (!driver) return { success: false, message: "Registro de motorista não encontrado." };
@@ -86,8 +168,23 @@ class MobileAPIService {
     if (driver.status === DRIVER_STATUSES.INACTIVE) {
       return { success: false, message: "Seu registro ainda não foi liberado pelo gestor." };
     }
+    const activeRoute = await this.getActiveRouteForDriver(driver.id, driver.registrationNumber || numeroRegistro);
+    if (activeRoute) {
+      return {
+        success: true,
+        message: "Encontramos uma rota em andamento.",
+        data: {
+          nome: driver.name,
+          firestoreId: driver.firestoreId,
+          companyId: driver.companyId,
+          status: driver.status,
+          activeRoute,
+        },
+      };
+    }
+
     if (driver.status === DRIVER_STATUSES.ON_ROUTE) {
-      return { success: false, message: "Motorista já possui rota ativa." };
+      return { success: false, message: "Motorista ja possui rota ativa, mas nao encontramos a rota para retomar. Procure o gestor da frota." };
     }
 
     return {

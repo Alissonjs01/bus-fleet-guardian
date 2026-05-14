@@ -27,6 +27,16 @@ export interface TripSession {
   isActive: boolean;
 }
 
+export interface ActiveRouteSession {
+  routeId: string;
+  tripId?: string;
+  vehicleNumber: string;
+  driverNumber: string;
+  startTime: string;
+  startLocation?: GeoPointSnapshot | null;
+  startLocationError?: GeoPointFailure | null;
+}
+
 export interface ProblemReport {
   id: string;
   vehicleNumber: string;
