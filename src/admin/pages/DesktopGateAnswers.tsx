@@ -41,6 +41,7 @@ export default function DesktopGateAnswers() {
   const [requests, setRequests] = useState<ManagerAccessRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState("");
 
   useEffect(() => {
     requireAuth();
@@ -53,6 +54,7 @@ export default function DesktopGateAnswers() {
     return onSnapshot(
       answersQuery,
       (snapshot) => {
+        setLoadError("");
         setRequests(snapshot.docs.map((item) => {
           const data = item.data();
           return {
@@ -69,7 +71,11 @@ export default function DesktopGateAnswers() {
         }));
         setIsLoading(false);
       },
-      () => setIsLoading(false),
+      (error) => {
+        console.error("Erro ao carregar solicitacoes do gestor:", error);
+        setLoadError("Nao foi possivel carregar as solicitacoes. Verifique o acesso admin e as regras do Firestore.");
+        setIsLoading(false);
+      },
     );
   }, [isAuthenticated]);
 
@@ -120,6 +126,10 @@ export default function DesktopGateAnswers() {
             {isLoading ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : loadError ? (
+              <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
+                {loadError}
               </div>
             ) : requests.length === 0 ? (
               <div className="text-center py-10 text-muted-foreground">

@@ -53,7 +53,7 @@ export function DesktopGate({ onRealLogin }: DesktopGateProps) {
       setSubmitted(true);
     } catch (saveError) {
       console.error("Erro ao salvar resposta temporaria do desktop gate:", saveError);
-      setSubmitted(true);
+      setError("Nao foi possivel enviar a solicitacao. Tente novamente.");
     } finally {
       setIsSaving(false);
       setAccessKey("");
