@@ -8,7 +8,7 @@ import { useSyncStatus } from "@/hooks/useSyncStatus";
 const DEMO_COMPANY_ID = "demo-company";
 
 export function useFleetData(companyIdOverride?: string) {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const activeCompanyId = companyIdOverride || (user?.role === "admin" || user?.role === "gestor" ? DEMO_COMPANY_ID : user?.companyId || DEMO_COMPANY_ID);
   const isPublicFleetSession = !user && !!companyIdOverride;
   const [data, setData] = useState<FleetData>(() => getFleetData());
@@ -23,6 +23,11 @@ export function useFleetData(companyIdOverride?: string) {
   }, [data]);
 
   useEffect(() => {
+    if (authLoading && !companyIdOverride) {
+      setLoading(true);
+      return;
+    }
+
     if (!activeCompanyId) {
       setLoading(false);
       return;
@@ -31,7 +36,9 @@ export function useFleetData(companyIdOverride?: string) {
     setLoading(true);
     setError(undefined);
 
-    if (!isPublicFleetSession) {
+    const canPrepareCompanyData = !isPublicFleetSession && user?.role === "admin";
+
+    if (canPrepareCompanyData) {
       createCompanyIfMissing(activeCompanyId)
         .then(() => seedInitialFleetData(activeCompanyId))
         .catch((err) => setError(err instanceof Error ? err.message : "Erro ao preparar dados"));
@@ -50,7 +57,7 @@ export function useFleetData(companyIdOverride?: string) {
         setLoading(false);
       },
     );
-  }, [activeCompanyId, isPublicFleetSession]);
+  }, [activeCompanyId, authLoading, companyIdOverride, isPublicFleetSession, user?.role]);
 
   useEffect(() => {
     if (!activeCompanyId) return;
