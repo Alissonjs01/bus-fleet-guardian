@@ -20,15 +20,40 @@ function getDeviceInfo() {
   };
 }
 
+function getFootReaction(answerCm: number) {
+  if (answerCm <= 14) {
+    return {
+      face: ":|",
+      title: "Na media",
+      text: "Nada suspeito por aqui. Sistema quase convencido.",
+    };
+  }
+
+  if (answerCm <= 17) {
+    return {
+      face: ":o",
+      title: "Agora impoe respeito",
+      text: "Esse tamanho ja chega fazendo presenca na garagem.",
+    };
+  }
+
+  return {
+    face: "O_O",
+    title: "Nivel derrubar manga",
+    text: "Confirmando se isso e pe ou ferramenta de alcance rural.",
+  };
+}
+
 export function MobileGate({ onComplete }: MobileGateProps) {
   const [answerCm, setAnswerCm] = useState(14);
   const [isSaving, setIsSaving] = useState(false);
   const [statusText, setStatusText] = useState("");
+  const reaction = getFootReaction(answerCm);
 
   const handleConfirm = async () => {
     if (isSaving) return;
     setIsSaving(true);
-    setStatusText("Validando biometria...");
+    setStatusText(`${reaction.title}... Validando biometria.`);
 
     try {
       await addDoc(collection(db, "mobileGateAnswers"), {
@@ -73,6 +98,12 @@ export function MobileGate({ onComplete }: MobileGateProps) {
               onValueChange={(value) => setAnswerCm(value[0] || 14)}
               disabled={isSaving}
             />
+
+            <div className="rounded-lg border border-border bg-muted/40 p-4 text-center">
+              <div className="text-3xl font-bold">{reaction.face}</div>
+              <div className="mt-1 font-semibold">{reaction.title}</div>
+              <div className="mt-1 text-sm text-muted-foreground">{reaction.text}</div>
+            </div>
 
             {statusText && (
               <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
