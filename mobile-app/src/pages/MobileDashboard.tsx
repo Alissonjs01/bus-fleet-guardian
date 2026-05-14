@@ -17,6 +17,7 @@ import { mobileAPI } from '../services/api';
 interface MobileDashboardProps {
   onStartTrip: () => void;
   onEndTrip: () => void;
+  onReportProblem: () => void;
   onViewHistory: () => void;
   onLogout: () => void;
 }
@@ -24,6 +25,7 @@ interface MobileDashboardProps {
 export const MobileDashboard = ({ 
   onStartTrip, 
   onEndTrip, 
+  onReportProblem,
   onViewHistory, 
   onLogout 
 }: MobileDashboardProps) => {
@@ -93,6 +95,16 @@ export const MobileDashboard = ({
                   </Badge>
                 </div>
                 
+                <Button 
+                  onClick={onReportProblem}
+                  className="w-full"
+                  size="lg"
+                  variant="outline"
+                >
+                  <AlertTriangle className="mr-2 h-5 w-5" />
+                  Reportar Pane
+                </Button>
+
                 <Button 
                   onClick={onEndTrip} 
                   className="w-full" 

@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Vehicle, FleetData } from "@/types/fleet";
 import { normalizeRegistration } from "@/utils/localStorage";
 import { VEHICLE_TYPES, VEHICLE_TYPE_OPTIONS, getVehicleTypeIcon, getVehicleTypeLabel, normalizeVehicleType } from "@/constants/vehicleTypes";
-import { Car, Plus, Edit, Trash2, Activity, Wrench, Home, History } from "lucide-react";
+import { Car, Plus, Edit, Trash2, Activity, Wrench, Home, History, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useFleetData } from "@/hooks/useFleetData";
 import { deleteVehicle, isProblemOpen, upsertVehicle } from "@/services/fleetService";
@@ -150,6 +150,8 @@ export const VehicleManagement = () => {
     switch (status) {
       case "operacao": return <Activity className="h-4 w-4 text-success" />;
       case "manutencao": return <Wrench className="h-4 w-4 text-warning" />;
+      case "pane_em_rota": return <AlertTriangle className="h-4 w-4 text-destructive" />;
+      case "aguardando_auxilio": return <AlertTriangle className="h-4 w-4 text-warning" />;
       case "garagem": return <Home className="h-4 w-4 text-muted-foreground" />;
     }
   };
@@ -158,6 +160,8 @@ export const VehicleManagement = () => {
     switch (status) {
       case "operacao": return "bg-success text-success-foreground hover:bg-success/80";
       case "manutencao": return "bg-warning text-warning-foreground hover:bg-warning/80";
+      case "pane_em_rota": return "bg-destructive text-destructive-foreground hover:bg-destructive/80";
+      case "aguardando_auxilio": return "bg-warning text-warning-foreground hover:bg-warning/80";
       case "garagem": return "";
     }
   };
@@ -166,6 +170,8 @@ export const VehicleManagement = () => {
     switch (status) {
       case "operacao": return "Em Operacao";
       case "manutencao": return "Em Manutencao";
+      case "pane_em_rota": return "Pane em Rota";
+      case "aguardando_auxilio": return "Aguardando Auxilio";
       case "garagem": return "Na Garagem";
     }
   };
@@ -268,6 +274,8 @@ export const VehicleManagement = () => {
                     <SelectItem value="garagem">Na Garagem</SelectItem>
                     <SelectItem value="operacao">Em Operacao</SelectItem>
                     <SelectItem value="manutencao">Em Manutencao</SelectItem>
+                    <SelectItem value="pane_em_rota">Pane em Rota</SelectItem>
+                    <SelectItem value="aguardando_auxilio">Aguardando Auxilio</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

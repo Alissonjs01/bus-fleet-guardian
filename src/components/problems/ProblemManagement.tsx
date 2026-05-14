@@ -244,10 +244,12 @@ export const ProblemManagement = () => {
               const selectedKey = String(problem.firestoreId || problem.id);
               const isSelected = selectedProblemId === selectedKey;
               const hasLocation = typeof problem.location?.latitude === "number" && typeof problem.location?.longitude === "number";
+              const isRouteIssue = route?.status === "active" && isProblemOpen(status);
 
               return (
                 <div key={selectedKey} className={`p-4 border rounded-lg ${
-                  isProblemOpen(status) ? "border-l-4 border-l-destructive" : "border-l-4 border-l-success"
+                  isRouteIssue ? "border-l-4 border-l-destructive bg-destructive/5" :
+                    isProblemOpen(status) ? "border-l-4 border-l-warning" : "border-l-4 border-l-success"
                 }`}>
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div className="flex-1">
@@ -260,6 +262,9 @@ export const ProblemManagement = () => {
                         <Badge variant={isProblemOpen(status) ? "destructive" : "secondary"}>
                           {PROBLEM_STATUS_LABELS[status]}
                         </Badge>
+                        {isRouteIssue && (
+                          <Badge variant="destructive">Pane em rota</Badge>
+                        )}
                       </div>
 
                       <p className="font-medium mb-2">{problem.observacao}</p>

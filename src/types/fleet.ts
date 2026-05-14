@@ -9,7 +9,7 @@ export interface Vehicle {
   numeroRegistro: string;
   tipo: VehicleType;
   vehicleType: VehicleType;
-  status: 'operacao' | 'garagem' | 'manutencao';
+  status: 'operacao' | 'garagem' | 'manutencao' | 'pane_em_rota' | 'aguardando_auxilio';
   createdAt: string;
   updatedAt?: string;
 }
@@ -114,6 +114,7 @@ export interface DashboardStats {
   inOperation: number;
   inGarage: number;
   inMaintenance: number;
+  inRouteIssue: number;
   overdueRevisions: number;
   upcomingRevisions: number;
   openProblems: number;

@@ -29,6 +29,7 @@ export const Dashboard = () => {
       inOperation: data.vehicles.filter((vehicle) => vehicle.status === "operacao").length,
       inGarage: data.vehicles.filter((vehicle) => vehicle.status === "garagem").length,
       inMaintenance: data.vehicles.filter((vehicle) => vehicle.status === "manutencao").length,
+      inRouteIssue: data.vehicles.filter((vehicle) => vehicle.status === "pane_em_rota" || vehicle.status === "aguardando_auxilio").length,
       overdueRevisions: data.revisions.filter((revision) => isRevisionActive(revision.status) && new Date(revision.dataProxima) < today).length,
       upcomingRevisions: data.revisions.filter((revision) => {
         const nextDate = new Date(revision.dataProxima);
@@ -64,6 +65,18 @@ export const Dashboard = () => {
     const nextDate = new Date(revision.dataProxima);
     return isRevisionActive(revision.status) && nextDate >= today && nextDate <= nextWeek;
   });
+  const routeIssueVehicles = data.vehicles.filter((vehicle) => vehicle.status === "pane_em_rota" || vehicle.status === "aguardando_auxilio");
+
+  const getVehicleStatusLabel = (status: string) => {
+    switch (status) {
+      case "operacao": return "Em Operacao";
+      case "garagem": return "Na Garagem";
+      case "manutencao": return "Em Manutencao";
+      case "pane_em_rota": return "Pane em Rota";
+      case "aguardando_auxilio": return "Aguardando Auxilio";
+      default: return "Status nao informado";
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -105,11 +118,11 @@ export const Dashboard = () => {
           description="Veiculos ativos"
         />
         <StatsCard
-          title="Problemas Abertos"
-          value={stats.openProblems}
+          title="Pane em Rota"
+          value={stats.inRouteIssue}
           icon={AlertTriangle}
-          variant="warning"
-          description="Requerem atencao"
+          variant="destructive"
+          description="Prioridade operacional"
         />
         <StatsCard
           title="Revisoes Atrasadas"
@@ -121,6 +134,47 @@ export const Dashboard = () => {
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
+        {routeIssueVehicles.length > 0 && (
+          <Card className="md:col-span-2 border-destructive/40">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-destructive">
+                <AlertTriangle className="h-5 w-5" />
+                Veiculos com Pane em Rota
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-3 md:grid-cols-2">
+                {routeIssueVehicles.map((vehicle) => {
+                  const activeIssue = data.problems
+                    .filter((problem) => problem.vehicleId === vehicle.id && isProblemOpen(problem.status))
+                    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+                  const activeRoute = data.routes.find((route) => route.vehicleId === vehicle.id && route.status === "active");
+                  const driver = activeRoute ? data.drivers.find((item) => item.id === activeRoute.driverId) : undefined;
+
+                  return (
+                    <div key={vehicle.id} className="rounded-lg border border-destructive/30 bg-destructive/5 p-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <div className="font-medium">Veiculo {vehicle.numeroRegistro}</div>
+                          <div className="text-sm text-muted-foreground">
+                            {driver?.nome || "Motorista nao identificado"}
+                          </div>
+                        </div>
+                        <Badge variant="destructive">{getVehicleStatusLabel(vehicle.status)}</Badge>
+                      </div>
+                      {activeIssue && (
+                        <div className="mt-2 text-sm text-muted-foreground">
+                          {activeIssue.observacao}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -139,8 +193,7 @@ export const Dashboard = () => {
                     <div>
                       <div className="font-medium">Veiculo {item.vehicle.numeroRegistro}</div>
                       <div className="text-sm text-muted-foreground">
-                        Status: {item.vehicle.status === "operacao" ? "Em Operacao" :
-                          item.vehicle.status === "garagem" ? "Na Garagem" : "Em Manutencao"}
+                        Status: {getVehicleStatusLabel(item.vehicle.status)}
                       </div>
                     </div>
                   </div>
@@ -234,10 +287,14 @@ export const Dashboard = () => {
           <CardTitle>Status da Frota</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-4">
             <div className="text-center p-4 bg-success/10 border border-success/20 rounded-lg">
               <div className="text-2xl font-bold text-success">{stats.inOperation}</div>
               <div className="text-sm text-muted-foreground">Em Operacao</div>
+            </div>
+            <div className="text-center p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
+              <div className="text-2xl font-bold text-destructive">{stats.inRouteIssue}</div>
+              <div className="text-sm text-muted-foreground">Pane em Rota</div>
             </div>
             <div className="text-center p-4 bg-muted border rounded-lg">
               <div className="text-2xl font-bold">{stats.inGarage}</div>

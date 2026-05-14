@@ -34,8 +34,7 @@ export const MobileApp = () => {
   };
 
   const handleProblemReported = () => {
-    const hasActiveTrip = mobileStorage.hasActiveTrip();
-    setCurrentView(hasActiveTrip ? "trip-end" : "dashboard");
+    setCurrentView("dashboard");
   };
 
   const renderCurrentView = () => {
@@ -47,6 +46,7 @@ export const MobileApp = () => {
           <MobileDashboard
             onStartTrip={() => setCurrentView("trip-start")}
             onEndTrip={() => setCurrentView("trip-end")}
+            onReportProblem={() => setCurrentView("problem-report")}
             onViewHistory={() => setCurrentView("history")}
             onLogout={handleLogout}
           />
