@@ -22,6 +22,7 @@ export const TripEnd = ({ onTripEnded, onReportProblem, onBack }: TripEndProps) 
   const [isLoading, setIsLoading] = useState(false);
   const [endKm, setEndKm] = useState('');
   const [error, setError] = useState('');
+  const [locationWarning, setLocationWarning] = useState('');
   
   const currentTrip = mobileStorage.getCurrentTrip();
   const pendingProblems = mobileStorage.getPendingProblems();
@@ -46,9 +47,13 @@ export const TripEnd = ({ onTripEnded, onReportProblem, onBack }: TripEndProps) 
 
     setIsLoading(true);
     setError('');
+    setLocationWarning('');
 
     try {
       const locationResult = await captureCurrentLocation();
+      if (locationResult.error) {
+        setLocationWarning(locationResult.error.message || 'Localizacao nao capturada. A rota sera finalizada sem GPS final.');
+      }
       const response = await mobileAPI.registrarRetorno(
         currentTrip.vehicleNumber,
         driver.numeroRegistro,
@@ -72,6 +77,9 @@ export const TripEnd = ({ onTripEnded, onReportProblem, onBack }: TripEndProps) 
       setError('Erro de conexão. Dados salvos localmente.');
       
       const locationResult = await captureCurrentLocation();
+      if (locationResult.error) {
+        setLocationWarning(locationResult.error.message || 'Localizacao nao capturada. A rota sera finalizada sem GPS final.');
+      }
       mobileStorage.addToOfflineQueue({
         type: 'retorno',
         data: {
@@ -241,6 +249,12 @@ export const TripEnd = ({ onTripEnded, onReportProblem, onBack }: TripEndProps) 
         {error && (
           <Alert variant="destructive">
             <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        {locationWarning && (
+          <Alert>
+            <AlertDescription>{locationWarning}</AlertDescription>
           </Alert>
         )}
 

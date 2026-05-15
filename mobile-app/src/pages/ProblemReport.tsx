@@ -40,6 +40,7 @@ export const ProblemReport = ({ onProblemReported, onBack }: ProblemReportProps)
   const [observacao, setObservacao] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [locationWarning, setLocationWarning] = useState('');
   
   const currentTrip = mobileStorage.getCurrentTrip();
   const driver = mobileStorage.getCurrentDriver();
@@ -59,9 +60,13 @@ export const ProblemReport = ({ onProblemReported, onBack }: ProblemReportProps)
 
     setIsLoading(true);
     setError('');
+    setLocationWarning('');
 
     try {
       const locationResult = await captureCurrentLocation();
+      if (locationResult.error) {
+        setLocationWarning(locationResult.error.message || 'Localizacao nao capturada. A ocorrencia sera registrada sem GPS.');
+      }
       const problemData: Omit<ProblemReportType, 'id' | 'reportedAt'> = {
         vehicleNumber: currentTrip.vehicleNumber,
         driverNumber: driver.numeroRegistro,
@@ -85,6 +90,9 @@ export const ProblemReport = ({ onProblemReported, onBack }: ProblemReportProps)
       }
     } catch (error) {
       const locationResult = await captureCurrentLocation();
+      if (locationResult.error) {
+        setLocationWarning(locationResult.error.message || 'Localizacao nao capturada. A ocorrencia sera registrada sem GPS.');
+      }
       const problem: ProblemReportType = {
         id: `problem_${Date.now()}`,
         vehicleNumber: currentTrip.vehicleNumber,
@@ -236,6 +244,12 @@ export const ProblemReport = ({ onProblemReported, onBack }: ProblemReportProps)
               {error && (
                 <Alert variant="destructive">
                   <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+
+              {locationWarning && (
+                <Alert>
+                  <AlertDescription>{locationWarning}</AlertDescription>
                 </Alert>
               )}
 

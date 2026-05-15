@@ -3,6 +3,7 @@ export interface GeoPointSnapshot {
   longitude: number;
   accuracy: number | null;
   capturedAt: string;
+  timestamp: string;
   source: "gps";
 }
 
@@ -10,6 +11,7 @@ export interface GeoPointFailure {
   code: "unsupported" | "permission_denied" | "position_unavailable" | "timeout" | "unknown";
   message: string;
   capturedAt: string;
+  timestamp: string;
 }
 
 export interface GeoPointResult {
@@ -40,6 +42,7 @@ export async function captureCurrentLocation(): Promise<GeoPointResult> {
         code: "unsupported",
         message: "Geolocalizacao nao suportada neste dispositivo.",
         capturedAt,
+        timestamp: capturedAt,
       },
     };
   }
@@ -53,6 +56,7 @@ export async function captureCurrentLocation(): Promise<GeoPointResult> {
             longitude: position.coords.longitude,
             accuracy: Number.isFinite(position.coords.accuracy) ? position.coords.accuracy : null,
             capturedAt: new Date().toISOString(),
+            timestamp: new Date().toISOString(),
             source: "gps",
           },
           error: null,
@@ -65,6 +69,7 @@ export async function captureCurrentLocation(): Promise<GeoPointResult> {
             code: mapPositionError(error),
             message: error.message || "Nao foi possivel capturar a localizacao.",
             capturedAt: new Date().toISOString(),
+            timestamp: new Date().toISOString(),
           },
         });
       },

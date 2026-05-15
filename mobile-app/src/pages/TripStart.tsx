@@ -23,6 +23,7 @@ export const TripStart = ({ onTripStarted, onBack }: TripStartProps) => {
   const [startKm, setStartKm] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [locationWarning, setLocationWarning] = useState('');
 
   const driver = mobileStorage.getCurrentDriver();
   const { data } = useFleetData(driver?.companyId || "demo-company");
@@ -57,9 +58,13 @@ export const TripStart = ({ onTripStarted, onBack }: TripStartProps) => {
 
     setIsLoading(true);
     setError('');
+    setLocationWarning('');
 
     try {
       const locationResult = await captureCurrentLocation();
+      if (locationResult.error) {
+        setLocationWarning(locationResult.error.message || 'Localizacao nao capturada. A rota sera registrada sem GPS inicial.');
+      }
       const response = await mobileAPI.registrarSaida(
         normalizedVehicleNumber,
         driver.numeroRegistro,
@@ -93,6 +98,9 @@ export const TripStart = ({ onTripStarted, onBack }: TripStartProps) => {
       setError('Erro de conexao. Dados salvos localmente.');
 
       const locationResult = await captureCurrentLocation();
+      if (locationResult.error) {
+        setLocationWarning(locationResult.error.message || 'Localizacao nao capturada. A rota sera registrada sem GPS inicial.');
+      }
       const tripSession: TripSession = {
         id: `trip_${Date.now()}`,
         vehicleNumber: normalizedVehicleNumber,
@@ -190,6 +198,12 @@ export const TripStart = ({ onTripStarted, onBack }: TripStartProps) => {
               {error && (
                 <Alert variant="destructive">
                   <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+
+              {locationWarning && (
+                <Alert>
+                  <AlertDescription>{locationWarning}</AlertDescription>
                 </Alert>
               )}
 

@@ -83,7 +83,7 @@ function normalizeDriver(id: string, data: DocumentData): Driver {
 
 export function normalizeProblemStatus(value: unknown): Problem["status"] {
   const status = String(value || "").toLowerCase().trim();
-  if (["em_andamento", "em andamento", "andamento", "in_progress"].includes(status)) return "em_andamento";
+  if (["em_andamento", "em andamento", "andamento", "in_progress", "aguardando_auxilio", "aguardando auxilio", "aguardando auxílio"].includes(status)) return "em_andamento";
   if (["resolvida", "resolvido", "resolved"].includes(status)) return "resolvida";
   if (["cancelada", "cancelado", "canceled", "cancelled"].includes(status)) return "cancelada";
   return "aberta";
@@ -516,25 +516,65 @@ export async function deleteDriver(driver: Driver) {
 }
 
 export async function updateProblem(companyId: string, problem: Problem) {
+  const status = normalizeProblemStatus(problem.status);
   const payload = withoutUndefined(withCompany(companyId, {
     ...problem,
     legacyId: problem.id,
-    status: normalizeProblemStatus(problem.status),
+    status,
     title: problem.observacao.slice(0, 80),
     description: problem.observacao,
     priority: problem.gravidade,
     createdAt: problem.createdAt || new Date().toISOString(),
   }));
 
+  const issuesSnapshot = await getDocs(query(
+    collection(db, "issues"),
+    where("companyId", "==", companyId),
+    where("vehicleId", "==", problem.vehicleId),
+  ));
+
+  const hasOpenIssue = issuesSnapshot.docs.some((issueDoc) => {
+    if (problem.firestoreId && issueDoc.id === problem.firestoreId) return isProblemOpen(status);
+    return isProblemOpen(issueDoc.data().status);
+  }) || (!problem.firestoreId && isProblemOpen(status));
+
+  const vehicleSnapshot = await getDocs(query(
+    collection(db, "vehicles"),
+    where("companyId", "==", companyId),
+    where("legacyId", "==", problem.vehicleId),
+  ));
+  const vehicleDoc = vehicleSnapshot.docs[0];
+
   if (problem.firestoreId) {
-    await updateDoc(doc(db, "issues", problem.firestoreId), payload);
+    const batch = writeBatch(db);
+    batch.update(doc(db, "issues", problem.firestoreId), payload);
+
+    if (vehicleDoc) {
+      batch.update(doc(db, "vehicles", vehicleDoc.id), {
+        status: hasOpenIssue ? "manutencao" : "garagem",
+        updatedAt: serverTimestamp(),
+      });
+    }
+
+    await batch.commit();
     return problem.firestoreId;
   }
 
-  const ref = await addDoc(collection(db, "issues"), {
+  const ref = doc(collection(db, "issues"));
+  const batch = writeBatch(db);
+  batch.set(ref, {
     ...payload,
     createdAt: serverTimestamp(),
   });
+
+  if (vehicleDoc) {
+    batch.update(doc(db, "vehicles", vehicleDoc.id), {
+      status: hasOpenIssue ? "manutencao" : "garagem",
+      updatedAt: serverTimestamp(),
+    });
+  }
+
+  await batch.commit();
   return ref.id;
 }
 
