@@ -45,7 +45,7 @@ export const Sidebar = ({ activeView, onViewChange, isCollapsed, onToggleCollaps
 
   return (
     <div className={cn(
-      "bg-card border-r border-border h-screen transition-all duration-300 flex flex-col",
+      "sticky top-0 shrink-0 bg-card border-r border-border h-screen transition-all duration-300 flex flex-col",
       isCollapsed ? "w-16" : "w-64"
     )}>
       {/* Header com botão de toggle */}

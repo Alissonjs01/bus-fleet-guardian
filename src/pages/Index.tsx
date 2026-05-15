@@ -46,14 +46,14 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="h-screen bg-background flex overflow-hidden">
       <Sidebar
         activeView={activeView}
         onViewChange={setActiveView}
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
       />
-      <div className="flex-1 p-6 overflow-auto">
+      <div className="flex-1 overflow-y-auto p-6">
         <div key={`${activeView}-${dataVersion}`}>
           {renderContent()}
         </div>
