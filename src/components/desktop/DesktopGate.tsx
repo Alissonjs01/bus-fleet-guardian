@@ -102,7 +102,7 @@ export function DesktopGate({ onRealLogin }: DesktopGateProps) {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="desktop-gate-key">Chave</Label>
+                <Label htmlFor="desktop-gate-key">Senha</Label>
                 <Input
                   id="desktop-gate-key"
                   type="password"
