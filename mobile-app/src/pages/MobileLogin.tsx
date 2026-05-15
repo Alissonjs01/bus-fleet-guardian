@@ -80,6 +80,7 @@ export const MobileLogin = ({ onLoginSuccess }: MobileLoginProps) => {
       startTime: pendingResume.route.startTime,
       startLocation: pendingResume.route.startLocation || null,
       startLocationError: pendingResume.route.startLocationError || null,
+      startKm: pendingResume.route.startKm,
       isActive: true,
     };
 

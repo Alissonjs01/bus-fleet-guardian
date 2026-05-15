@@ -9,8 +9,9 @@ import { MobileLayout } from '../components/MobileLayout';
 import { mobileStorage } from '../utils/storage';
 import { mobileAPI } from '../services/api';
 import { TripSession } from '../types/mobile';
-import { getFleetData, normalizeRegistration } from '@/utils/localStorage';
+import { normalizeRegistration } from '@/utils/localStorage';
 import { captureCurrentLocation } from '@/utils/geolocation';
+import { useFleetData } from '@/hooks/useFleetData';
 
 interface TripStartProps {
   onTripStarted: () => void;
@@ -19,11 +20,14 @@ interface TripStartProps {
 
 export const TripStart = ({ onTripStarted, onBack }: TripStartProps) => {
   const [vehicleNumber, setVehicleNumber] = useState('');
+  const [startKm, setStartKm] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
   const driver = mobileStorage.getCurrentDriver();
-  const vehicles = getFleetData().vehicles;
+  const { data } = useFleetData(driver?.companyId || "demo-company");
+  const vehicles = data.vehicles;
+  const selectedVehicle = vehicles.find((vehicle) => normalizeRegistration(vehicle.numeroRegistro) === normalizeRegistration(vehicleNumber));
 
   const handleStartTrip = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,6 +44,17 @@ export const TripStart = ({ onTripStarted, onBack }: TripStartProps) => {
       return;
     }
 
+    const parsedStartKm = Number(startKm);
+    if (!Number.isFinite(parsedStartKm) || parsedStartKm < 0) {
+      setError('Informe a quilometragem atual do veiculo');
+      return;
+    }
+
+    if (selectedVehicle?.currentKm !== undefined && parsedStartKm < selectedVehicle.currentKm) {
+      setError('Quilometragem menor que o ultimo registro do veiculo.');
+      return;
+    }
+
     setIsLoading(true);
     setError('');
 
@@ -52,6 +67,7 @@ export const TripStart = ({ onTripStarted, onBack }: TripStartProps) => {
           location: locationResult.location,
           locationError: locationResult.error,
         },
+        parsedStartKm,
       );
 
       if (response.success) {
@@ -64,6 +80,7 @@ export const TripStart = ({ onTripStarted, onBack }: TripStartProps) => {
           startTime: new Date().toISOString(),
           startLocation: response.data?.startLocation || locationResult.location,
           startLocationError: response.data?.startLocationError || locationResult.error,
+          startKm: response.data?.startKm ?? parsedStartKm,
           isActive: true,
         };
 
@@ -81,10 +98,11 @@ export const TripStart = ({ onTripStarted, onBack }: TripStartProps) => {
         vehicleNumber: normalizedVehicleNumber,
         driverNumber: driver.numeroRegistro,
         startTime: new Date().toISOString(),
-        startLocation: locationResult.location,
-        startLocationError: locationResult.error,
-        isActive: true,
-      };
+          startLocation: locationResult.location,
+          startLocationError: locationResult.error,
+          startKm: parsedStartKm,
+          isActive: true,
+        };
 
       mobileStorage.setCurrentTrip(tripSession);
       mobileStorage.addToOfflineQueue({
@@ -92,6 +110,7 @@ export const TripStart = ({ onTripStarted, onBack }: TripStartProps) => {
         data: {
           vehicleNumber: normalizedVehicleNumber,
           driverNumber: driver.numeroRegistro,
+          startKm: parsedStartKm,
           location: locationResult.location,
           locationError: locationResult.error,
         },
@@ -146,6 +165,26 @@ export const TripStart = ({ onTripStarted, onBack }: TripStartProps) => {
                     </option>
                   ))}
                 </datalist>
+                {selectedVehicle?.currentKm !== undefined && (
+                  <p className="text-xs text-muted-foreground">
+                    Ultimo KM registrado: {selectedVehicle.currentKm.toLocaleString("pt-BR")} km
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="startKm">Quilometragem atual</Label>
+                <Input
+                  id="startKm"
+                  type="number"
+                  inputMode="numeric"
+                  min="0"
+                  placeholder="Ex: 125430"
+                  value={startKm}
+                  onChange={(e) => setStartKm(e.target.value)}
+                  disabled={isLoading}
+                  className="text-center text-lg font-medium"
+                />
               </div>
 
               {error && (

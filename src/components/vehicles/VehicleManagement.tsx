@@ -1,28 +1,31 @@
-import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useEffect, useState } from "react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Vehicle, FleetData } from "@/types/fleet";
-import { normalizeRegistration } from "@/utils/localStorage";
 import { VEHICLE_TYPES, VEHICLE_TYPE_OPTIONS, getVehicleTypeIcon, getVehicleTypeLabel, normalizeVehicleType } from "@/constants/vehicleTypes";
-import { Car, Plus, Edit, Trash2, Activity, Wrench, Home, History, AlertTriangle } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
 import { useFleetData } from "@/hooks/useFleetData";
+import { useToast } from "@/hooks/use-toast";
 import { deleteVehicle, isProblemOpen, upsertVehicle } from "@/services/fleetService";
+import type { FleetData, Vehicle } from "@/types/fleet";
+import { normalizeRegistration } from "@/utils/localStorage";
+import { Activity, AlertTriangle, Car, Edit, History, Home, Plus, Trash2, Wrench } from "lucide-react";
+
+const emptyForm = {
+  numeroRegistro: "",
+  tipo: VEHICLE_TYPES.CONVENCIONAL as Vehicle["tipo"],
+  status: "garagem" as Vehicle["status"],
+  currentKm: "",
+};
 
 export const VehicleManagement = () => {
   const [data, setData] = useState<FleetData | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
-  const [formData, setFormData] = useState({
-    numeroRegistro: "",
-    tipo: VEHICLE_TYPES.CONVENCIONAL as Vehicle["tipo"],
-    status: "garagem" as Vehicle["status"],
-  });
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [formData, setFormData] = useState(emptyForm);
   const [typeFilter, setTypeFilter] = useState<Vehicle["tipo"] | "todos">("todos");
   const [isSaving, setIsSaving] = useState(false);
   const [historyVehicle, setHistoryVehicle] = useState<Vehicle | null>(null);
@@ -35,9 +38,15 @@ export const VehicleManagement = () => {
   }, [loading, realtimeData]);
 
   const resetForm = () => {
-    setFormData({ numeroRegistro: "", tipo: VEHICLE_TYPES.CONVENCIONAL, status: "garagem" });
-    setIsEditing(false);
+    setFormData(emptyForm);
     setEditingVehicle(null);
+    setIsCreateOpen(false);
+  };
+
+  const handleCreate = () => {
+    setEditingVehicle(null);
+    setFormData(emptyForm);
+    setIsCreateOpen(true);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -45,11 +54,21 @@ export const VehicleManagement = () => {
     if (!data || isSaving) return;
 
     const numeroRegistro = normalizeRegistration(formData.numeroRegistro);
+    const currentKm = formData.currentKm === "" ? undefined : Number(formData.currentKm);
 
     if (!numeroRegistro) {
       toast({
         title: "Erro",
         description: "Numero de registro e obrigatorio",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (currentKm !== undefined && (!Number.isFinite(currentKm) || currentKm < 0)) {
+      toast({
+        title: "Erro",
+        description: "Informe uma quilometragem valida",
         variant: "destructive",
       });
       return;
@@ -70,13 +89,14 @@ export const VehicleManagement = () => {
 
     setIsSaving(true);
     try {
-      if (isEditing && editingVehicle) {
+      if (editingVehicle) {
         await upsertVehicle(companyId, {
           ...editingVehicle,
           numeroRegistro,
           tipo: normalizeVehicleType(formData.tipo),
           vehicleType: normalizeVehicleType(formData.tipo),
           status: formData.status,
+          currentKm,
         });
         toast({
           title: "Sucesso",
@@ -90,6 +110,7 @@ export const VehicleManagement = () => {
           vehicleType: normalizeVehicleType(formData.tipo),
           companyId,
           status: formData.status,
+          currentKm,
           createdAt: new Date().toISOString(),
         });
         toast({
@@ -110,13 +131,14 @@ export const VehicleManagement = () => {
   };
 
   const handleEdit = (vehicle: Vehicle) => {
+    setIsCreateOpen(false);
     setEditingVehicle(vehicle);
     setFormData({
       numeroRegistro: vehicle.numeroRegistro,
       tipo: normalizeVehicleType(vehicle.vehicleType || vehicle.tipo),
       status: vehicle.status,
+      currentKm: vehicle.currentKm === undefined ? "" : String(vehicle.currentKm),
     });
-    setIsEditing(true);
   };
 
   const handleDelete = async (vehicle: Vehicle) => {
@@ -141,10 +163,6 @@ export const VehicleManagement = () => {
       }
     }
   };
-
-  if (loading || !data) {
-    return <div>Carregando...</div>;
-  }
 
   const getStatusIcon = (status: Vehicle["status"]) => {
     switch (status) {
@@ -223,6 +241,80 @@ export const VehicleManagement = () => {
     return `${hours}h ${minutes}min${finishedAt ? "" : " em andamento"}`;
   };
 
+  const renderVehicleForm = (mode: "create" | "edit") => (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <Label htmlFor={`${mode}-numeroRegistro`}>Numero de Registro</Label>
+        <Input
+          id={`${mode}-numeroRegistro`}
+          placeholder="Ex: 05"
+          value={formData.numeroRegistro}
+          onChange={(e) => setFormData({ ...formData, numeroRegistro: e.target.value })}
+        />
+      </div>
+
+      <div>
+        <Label>Tipo de Veiculo</Label>
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          {VEHICLE_TYPE_OPTIONS.map((option) => (
+            <Button
+              key={option.value}
+              type="button"
+              variant={normalizeVehicleType(formData.tipo) === option.value ? "default" : "outline"}
+              className="flex h-auto flex-col items-center gap-1 py-3"
+              onClick={() => setFormData({ ...formData, tipo: option.value })}
+            >
+              <span className="text-lg">{option.icon}</span>
+              <span className="text-xs">{option.label}</span>
+            </Button>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <Label htmlFor={`${mode}-status`}>Status</Label>
+        <Select value={formData.status} onValueChange={(value: Vehicle["status"]) => setFormData({ ...formData, status: value })}>
+          <SelectTrigger id={`${mode}-status`}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="garagem">Na Garagem</SelectItem>
+            <SelectItem value="operacao">Em Operacao</SelectItem>
+            <SelectItem value="manutencao">Em Manutencao</SelectItem>
+            <SelectItem value="pane_em_rota">Pane em Rota</SelectItem>
+            <SelectItem value="aguardando_auxilio">Aguardando Auxilio</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div>
+        <Label htmlFor={`${mode}-currentKm`}>KM atual</Label>
+        <Input
+          id={`${mode}-currentKm`}
+          type="number"
+          inputMode="numeric"
+          min="0"
+          placeholder="Ex: 125430"
+          value={formData.currentKm}
+          onChange={(e) => setFormData({ ...formData, currentKm: e.target.value })}
+        />
+      </div>
+
+      <div className="flex gap-2">
+        <Button type="submit" className="flex-1" disabled={isSaving}>
+          {isSaving ? "Salvando..." : mode === "edit" ? "Atualizar" : "Cadastrar"}
+        </Button>
+        <Button type="button" variant="outline" onClick={resetForm}>
+          Cancelar
+        </Button>
+      </div>
+    </form>
+  );
+
+  if (loading || !data) {
+    return <div>Carregando...</div>;
+  }
+
   const filteredVehicles = typeFilter === "todos"
     ? data.vehicles
     : data.vehicles.filter((vehicle) => normalizeVehicleType(vehicle.vehicleType || vehicle.tipo) === typeFilter);
@@ -236,174 +328,128 @@ export const VehicleManagement = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight">Gestao de Veiculos</h2>
-        <p className="text-muted-foreground">
-          Cadastro e controle da frota
-        </p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">Gestao de Veiculos</h2>
+          <p className="text-muted-foreground">
+            Cadastro e controle da frota
+          </p>
+        </div>
+        <Button onClick={handleCreate} className="w-full sm:w-auto">
+          <Plus className="mr-2 h-4 w-4" />
+          Adicionar veiculo
+        </Button>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Plus className="h-5 w-5" />
-              {isEditing ? "Editar Veiculo" : "Novo Veiculo"}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <Label htmlFor="numeroRegistro">Numero de Registro</Label>
-                <Input
-                  id="numeroRegistro"
-                  placeholder="Ex: 05"
-                  value={formData.numeroRegistro}
-                  onChange={(e) => setFormData({ ...formData, numeroRegistro: e.target.value })}
-                />
-              </div>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-2">
+              <Car className="h-5 w-5" />
+              Veiculos Cadastrados ({filteredVehicles.length})
+            </div>
+            <Select value={typeFilter} onValueChange={(value: Vehicle["tipo"] | "todos") => setTypeFilter(value)}>
+              <SelectTrigger className="w-full sm:w-44">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos os tipos</SelectItem>
+                {VEHICLE_TYPE_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>{option.icon} {option.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {filteredVehicles.map((vehicle) => {
+              const problems = data.problems.filter((problem) => problem.vehicleId === vehicle.id && isProblemOpen(problem.status)).length;
 
-              <div>
-                <Label htmlFor="tipo">Tipo de Veiculo</Label>
-                <div className="grid grid-cols-2 gap-2 mt-2">
-                  {VEHICLE_TYPE_OPTIONS.map((option) => (
-                    <Button
-                      key={option.value}
-                      type="button"
-                      variant={normalizeVehicleType(formData.tipo) === option.value ? "default" : "outline"}
-                      className="flex flex-col items-center gap-1 h-auto py-3"
-                      onClick={() => setFormData({ ...formData, tipo: option.value })}
-                    >
-                      <span className="text-lg">{option.icon}</span>
-                      <span className="text-xs">{option.label}</span>
-                    </Button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <Label htmlFor="status">Status</Label>
-                <Select value={formData.status} onValueChange={(value: Vehicle["status"]) => setFormData({ ...formData, status: value })}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="garagem">Na Garagem</SelectItem>
-                    <SelectItem value="operacao">Em Operacao</SelectItem>
-                    <SelectItem value="manutencao">Em Manutencao</SelectItem>
-                    <SelectItem value="pane_em_rota">Pane em Rota</SelectItem>
-                    <SelectItem value="aguardando_auxilio">Aguardando Auxilio</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="flex gap-2">
-                <Button type="submit" className="flex-1" disabled={isSaving}>
-                  {isSaving ? "Salvando..." : isEditing ? "Atualizar" : "Cadastrar"}
-                </Button>
-                {isEditing && (
-                  <Button type="button" variant="outline" onClick={resetForm}>
-                    Cancelar
-                  </Button>
-                )}
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-
-        <Card className="md:col-span-2">
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Car className="h-5 w-5" />
-                Veiculos Cadastrados ({filteredVehicles.length})
-              </div>
-              <Select value={typeFilter} onValueChange={(value: Vehicle["tipo"] | "todos") => setTypeFilter(value)}>
-                <SelectTrigger className="w-40">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todos os tipos</SelectItem>
-                  {VEHICLE_TYPE_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>{option.icon} {option.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {filteredVehicles.map((vehicle) => {
-                const problems = data.problems.filter((problem) => problem.vehicleId === vehicle.id && isProblemOpen(problem.status)).length;
-
-                return (
-                  <div key={vehicle.id} className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <span className="text-lg">{getVehicleTypeIcon(vehicle.vehicleType || vehicle.tipo)}</span>
-                      {getStatusIcon(vehicle.status)}
-                      <div>
-                        <div className="font-medium flex items-center gap-2">
-                          Veiculo {vehicle.numeroRegistro}
-                          <span className="text-sm text-muted-foreground">
-                            ({getVehicleTypeLabel(vehicle.vehicleType || vehicle.tipo)})
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2 mt-1">
-                          <Badge variant={vehicle.status === "garagem" ? "secondary" : "default"} className={getStatusClassName(vehicle.status)}>
-                            {getStatusLabel(vehicle.status)}
+              return (
+                <div key={vehicle.firestoreId || vehicle.id} className="flex items-center justify-between rounded-lg border p-4">
+                  <div className="flex items-center gap-3">
+                    <span className="text-lg">{getVehicleTypeIcon(vehicle.vehicleType || vehicle.tipo)}</span>
+                    {getStatusIcon(vehicle.status)}
+                    <div>
+                      <div className="flex items-center gap-2 font-medium">
+                        Veiculo {vehicle.numeroRegistro}
+                        <span className="text-sm text-muted-foreground">
+                          ({getVehicleTypeLabel(vehicle.vehicleType || vehicle.tipo)})
+                        </span>
+                      </div>
+                      <div className="mt-1 flex flex-wrap items-center gap-2">
+                        <Badge variant={vehicle.status === "garagem" ? "secondary" : "default"} className={getStatusClassName(vehicle.status)}>
+                          {getStatusLabel(vehicle.status)}
+                        </Badge>
+                        {vehicle.currentKm !== undefined && (
+                          <Badge variant="outline" className="text-xs">
+                            {vehicle.currentKm.toLocaleString("pt-BR")} km
                           </Badge>
-                          {problems > 0 && (
-                            <Badge variant="destructive" className="text-xs">
-                              {problems} problema{problems !== 1 ? "s" : ""}
-                            </Badge>
-                          )}
-                        </div>
+                        )}
+                        {problems > 0 && (
+                          <Badge variant="destructive" className="text-xs">
+                            {problems} problema{problems !== 1 ? "s" : ""}
+                          </Badge>
+                        )}
                       </div>
                     </div>
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setHistoryVehicle(vehicle)}
-                      >
-                        <History className="h-4 w-4 mr-1" />
-                        Historico
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleEdit(vehicle)}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleDelete(vehicle)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
                   </div>
-                );
-              })}
-              {filteredVehicles.length === 0 && data.vehicles.length > 0 && (
-                <div className="text-center text-muted-foreground py-8">
-                  Nenhum veiculo encontrado para este filtro
+                  <div className="flex flex-wrap justify-end gap-2">
+                    <Button size="sm" variant="outline" onClick={() => setHistoryVehicle(vehicle)}>
+                      <History className="mr-1 h-4 w-4" />
+                      Historico
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => handleEdit(vehicle)} title="Editar veiculo">
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => handleDelete(vehicle)} title="Remover veiculo">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
-              )}
-              {data.vehicles.length === 0 && (
-                <div className="text-center text-muted-foreground py-8">
-                  Nenhum veiculo cadastrado
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+              );
+            })}
+            {filteredVehicles.length === 0 && data.vehicles.length > 0 && (
+              <div className="py-8 text-center text-muted-foreground">
+                Nenhum veiculo encontrado para este filtro
+              </div>
+            )}
+            {data.vehicles.length === 0 && (
+              <div className="py-8 text-center text-muted-foreground">
+                Nenhum veiculo cadastrado
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Dialog open={isCreateOpen} onOpenChange={(open) => open ? handleCreate() : resetForm()}>
+        <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Adicionar Veiculo</DialogTitle>
+            <DialogDescription>
+              Cadastre um veiculo e, se quiser, informe o KM atual para iniciar o controle operacional.
+            </DialogDescription>
+          </DialogHeader>
+          {renderVehicleForm("create")}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!editingVehicle} onOpenChange={(open) => !open && resetForm()}>
+        <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Editar Veiculo</DialogTitle>
+            <DialogDescription>
+              Atualize os dados do veiculo sem sair da lista.
+            </DialogDescription>
+          </DialogHeader>
+          {renderVehicleForm("edit")}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!historyVehicle} onOpenChange={(open) => !open && setHistoryVehicle(null)}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Historico do Veiculo {historyVehicle?.numeroRegistro}</DialogTitle>
             <DialogDescription>
@@ -425,6 +471,10 @@ export const VehicleManagement = () => {
                       </div>
                       <div className="text-xs text-muted-foreground">
                         Tempo total: {getUsageDuration(route.startedAt, route.finishedAt)}
+                      </div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        KM: {route.startKm !== undefined ? route.startKm.toLocaleString("pt-BR") : "--"} - {route.endKm !== undefined ? route.endKm.toLocaleString("pt-BR") : "--"}
+                        {route.distanceKm !== undefined ? ` (${route.distanceKm.toLocaleString("pt-BR")} km rodados)` : ""}
                       </div>
                     </div>
                     <Badge variant={route.status === "active" ? "default" : "secondary"}>

@@ -3,6 +3,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Loader2, CheckCircle, AlertTriangle, Plus } from 'lucide-react';
 import { MobileLayout } from '../components/MobileLayout';
 import { mobileStorage } from '../utils/storage';
@@ -18,6 +20,7 @@ interface TripEndProps {
 
 export const TripEnd = ({ onTripEnded, onReportProblem, onBack }: TripEndProps) => {
   const [isLoading, setIsLoading] = useState(false);
+  const [endKm, setEndKm] = useState('');
   const [error, setError] = useState('');
   
   const currentTrip = mobileStorage.getCurrentTrip();
@@ -27,6 +30,17 @@ export const TripEnd = ({ onTripEnded, onReportProblem, onBack }: TripEndProps) 
   const handleEndTrip = async () => {
     if (!currentTrip || !driver) {
       setError('Dados da viagem não encontrados');
+      return;
+    }
+
+    const parsedEndKm = Number(endKm);
+    if (!Number.isFinite(parsedEndKm) || parsedEndKm < 0) {
+      setError('Informe a quilometragem final do veiculo.');
+      return;
+    }
+
+    if (currentTrip.startKm !== undefined && parsedEndKm < currentTrip.startKm) {
+      setError('Quilometragem final menor que a quilometragem inicial.');
       return;
     }
 
@@ -43,6 +57,7 @@ export const TripEnd = ({ onTripEnded, onReportProblem, onBack }: TripEndProps) 
           location: locationResult.location,
           locationError: locationResult.error,
         },
+        parsedEndKm,
       );
       
       if (response.success) {
@@ -63,6 +78,7 @@ export const TripEnd = ({ onTripEnded, onReportProblem, onBack }: TripEndProps) 
           vehicleNumber: currentTrip.vehicleNumber,
           driverNumber: driver.numeroRegistro,
           problems: pendingProblems,
+          endKm: parsedEndKm,
           location: locationResult.location,
           locationError: locationResult.error,
         },
@@ -134,6 +150,34 @@ export const TripEnd = ({ onTripEnded, onReportProblem, onBack }: TripEndProps) 
                 </p>
               </div>
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Quilometragem final</CardTitle>
+            <CardDescription>
+              Informe o KM atual do veiculo para calcular a distancia rodada
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <Label htmlFor="endKm">KM final</Label>
+            <Input
+              id="endKm"
+              type="number"
+              inputMode="numeric"
+              min="0"
+              placeholder="Ex: 125487"
+              value={endKm}
+              onChange={(e) => setEndKm(e.target.value)}
+              disabled={isLoading}
+              className="text-center text-lg font-medium"
+            />
+            {currentTrip?.startKm !== undefined && Number(endKm) >= currentTrip.startKm && (
+              <p className="text-sm text-muted-foreground">
+                KM rodados: {(Number(endKm) - currentTrip.startKm).toLocaleString("pt-BR")} km
+              </p>
+            )}
           </CardContent>
         </Card>
 

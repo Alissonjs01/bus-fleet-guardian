@@ -97,6 +97,7 @@ class MobileAPIService {
       id: vehicleDoc.id,
       legacyId: Number(vehicle.legacyId || vehicle.id || 0),
       status: String(vehicle.status || "garagem"),
+      currentKm: vehicle.currentKm === undefined || vehicle.currentKm === null ? undefined : Number(vehicle.currentKm),
       data: vehicle,
     };
   }
@@ -155,6 +156,7 @@ class MobileAPIService {
       startTime: toIso(route.startedAt || route.createdAt),
       startLocation: route.startLocation || null,
       startLocationError: route.startLocationError || null,
+      startKm: route.startKm === undefined || route.startKm === null ? undefined : Number(route.startKm),
     };
   }
 
@@ -198,11 +200,12 @@ class MobileAPIService {
     };
   }
 
-  async registrarSaida(vehicleNumber: string, driverNumber: string, eventLocation?: LocationFields): Promise<APIResponse<{
+  async registrarSaida(vehicleNumber: string, driverNumber: string, eventLocation?: LocationFields, startKm?: number): Promise<APIResponse<{
     routeId: string;
     tripId: string;
     startLocation: GeoPointSnapshot | null;
     startLocationError: GeoPointFailure | null;
+    startKm?: number;
   }>> {
     const driver = await getDriverByRegistration(driverNumber, MOBILE_COMPANY_ID);
     const vehicle = await this.getVehicleByNumber(vehicleNumber);
@@ -231,6 +234,15 @@ class MobileAPIService {
       return { success: false, message: "Veiculo indisponivel para iniciar rota." };
     }
 
+    const normalizedStartKm = startKm === undefined ? undefined : Number(startKm);
+    if (normalizedStartKm === undefined || !Number.isFinite(normalizedStartKm) || normalizedStartKm < 0) {
+      return { success: false, message: "Informe a quilometragem atual do veiculo." };
+    }
+
+    if (vehicle.currentKm !== undefined && normalizedStartKm < vehicle.currentKm) {
+      return { success: false, message: "Quilometragem menor que o ultimo registro do veiculo." };
+    }
+
     const now = new Date().toISOString();
     const capturedLocation = await resolveLocation(eventLocation);
     const { location, error: locationError } = capturedLocation;
@@ -239,6 +251,7 @@ class MobileAPIService {
 
     batch.update(doc(db, "vehicles", vehicle.id), {
       status: "operacao",
+      currentKm: normalizedStartKm,
       updatedAt: serverTimestamp(),
     });
 
@@ -258,6 +271,7 @@ class MobileAPIService {
       driverUserId: driver.userId || null,
       status: "active",
       startedAt: now,
+      startKm: normalizedStartKm,
       ...locationFields(location, locationError, "startLocation", "startLocationError"),
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
@@ -271,6 +285,7 @@ class MobileAPIService {
       driverId: driver.id,
       saida: now,
       startTime: now,
+      startKm: normalizedStartKm,
       retorno: null,
       endTime: null,
       ...locationFields(location, locationError, "startLocation", "startLocationError"),
@@ -289,11 +304,12 @@ class MobileAPIService {
         tripId: tripRef.id,
         startLocation: location,
         startLocationError: locationError,
+        startKm: normalizedStartKm,
       },
     };
   }
 
-  async registrarRetorno(vehicleNumber: string, driverNumber: string, problems: ProblemReport[], eventLocation?: LocationFields): Promise<APIResponse> {
+  async registrarRetorno(vehicleNumber: string, driverNumber: string, problems: ProblemReport[], eventLocation?: LocationFields, endKm?: number): Promise<APIResponse> {
     const vehicle = await this.getVehicleByNumber(vehicleNumber);
     const driver = await getDriverByRegistration(driverNumber, MOBILE_COMPANY_ID);
 
@@ -310,6 +326,11 @@ class MobileAPIService {
     const { location, error: locationError } = capturedLocation;
     const batch = writeBatch(db);
     const vehicleId = vehicle.legacyId;
+    const normalizedEndKm = endKm === undefined ? undefined : Number(endKm);
+
+    if (normalizedEndKm === undefined || !Number.isFinite(normalizedEndKm) || normalizedEndKm < 0) {
+      return { success: false, message: "Informe a quilometragem final do veiculo." };
+    }
 
     const activeRoutes = await getDocs(query(
       collection(db, "routes"),
@@ -320,9 +341,16 @@ class MobileAPIService {
     ));
 
     activeRoutes.docs.forEach((routeDoc) => {
+      const routeStartKm = Number(routeDoc.data().startKm ?? vehicle.currentKm ?? 0);
+      if (Number.isFinite(routeStartKm) && normalizedEndKm < routeStartKm) {
+        throw new Error("Quilometragem final menor que a quilometragem inicial.");
+      }
+
       batch.update(doc(db, "routes", routeDoc.id), {
         status: "finished",
         finishedAt: now,
+        endKm: normalizedEndKm,
+        distanceKm: Math.max(0, normalizedEndKm - routeStartKm),
         ...locationFields(location, locationError, "endLocation", "endLocationError"),
         updatedAt: serverTimestamp(),
       });
@@ -348,9 +376,12 @@ class MobileAPIService {
     driverTrips.docs
       .filter((tripDoc) => !tripDoc.data().retorno && !tripDoc.data().endTime)
       .forEach((tripDoc) => {
+        const tripStartKm = Number(tripDoc.data().startKm ?? vehicle.currentKm ?? 0);
         batch.update(doc(db, "trips", tripDoc.id), {
           retorno: now,
           endTime: now,
+          endKm: normalizedEndKm,
+          distanceKm: Math.max(0, normalizedEndKm - tripStartKm),
           ...locationFields(location, locationError, "endLocation", "endLocationError"),
           updatedAt: serverTimestamp(),
         });
@@ -358,6 +389,7 @@ class MobileAPIService {
 
     batch.update(doc(db, "vehicles", vehicle.id), {
       status: problems.length > 0 || hasOpenRouteIssue ? "manutencao" : "garagem",
+      currentKm: normalizedEndKm,
       updatedAt: serverTimestamp(),
     });
 

@@ -51,6 +51,7 @@ function normalizeVehicle(id: string, data: DocumentData): Vehicle {
     tipo: vehicleType,
     vehicleType,
     status: data.status || "garagem",
+    currentKm: data.currentKm === undefined || data.currentKm === null ? undefined : Number(data.currentKm),
     createdAt: toIso(data.createdAt),
     updatedAt: toIso(data.updatedAt),
   };
@@ -156,6 +157,9 @@ function normalizeTrip(id: string, data: DocumentData): Trip {
     startLocationError: data.startLocationError || null,
     endLocation: data.endLocation || null,
     endLocationError: data.endLocationError || null,
+    startKm: data.startKm === undefined || data.startKm === null ? undefined : Number(data.startKm),
+    endKm: data.endKm === undefined || data.endKm === null ? undefined : Number(data.endKm),
+    distanceKm: data.distanceKm === undefined || data.distanceKm === null ? undefined : Number(data.distanceKm),
     problemas: data.problemas || [],
     createdAt: toIso(data.createdAt),
   };
@@ -176,6 +180,9 @@ function normalizeRoute(id: string, data: DocumentData): Route {
     startLocationError: data.startLocationError || null,
     endLocation: data.endLocation || null,
     endLocationError: data.endLocationError || null,
+    startKm: data.startKm === undefined || data.startKm === null ? undefined : Number(data.startKm),
+    endKm: data.endKm === undefined || data.endKm === null ? undefined : Number(data.endKm),
+    distanceKm: data.distanceKm === undefined || data.distanceKm === null ? undefined : Number(data.distanceKm),
     createdAt: toIso(data.createdAt),
   };
 }
@@ -215,7 +222,7 @@ function serializeRecord(companyId: string, collectionName: FleetCollectionName,
   if (collectionName === "vehicles") {
     const vehicle = record as Vehicle;
     const vehicleType = normalizeVehicleType(vehicle.vehicleType || vehicle.tipo);
-    return withoutUndefined({ ...base, plate: vehicle.numeroRegistro, tipo: vehicleType, vehicleType });
+    return withoutUndefined({ ...base, plate: vehicle.numeroRegistro, tipo: vehicleType, vehicleType, currentKm: vehicle.currentKm });
   }
 
   if (collectionName === "drivers") {
@@ -409,8 +416,9 @@ export async function upsertVehicle(companyId: string, vehicle: Vehicle) {
     legacyId: vehicle.id,
     plate: vehicle.numeroRegistro,
     tipo: normalizeVehicleType(vehicle.vehicleType || vehicle.tipo),
-    vehicleType: normalizeVehicleType(vehicle.vehicleType || vehicle.tipo),
-    createdAt: vehicle.createdAt || new Date().toISOString(),
+      vehicleType: normalizeVehicleType(vehicle.vehicleType || vehicle.tipo),
+      currentKm: vehicle.currentKm,
+      createdAt: vehicle.createdAt || new Date().toISOString(),
   }));
 
   if (vehicle.firestoreId) {

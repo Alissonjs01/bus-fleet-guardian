@@ -47,6 +47,7 @@ export const ProblemManagement = () => {
     status: "todos",
     categoria: "todas",
     gravidade: "todas",
+    vehicleId: "todos",
   });
   const [selectedProblemId, setSelectedProblemId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -99,6 +100,7 @@ export const ProblemManagement = () => {
       .filter((problem) => filter.status === "todos" || normalizeProblemStatus(problem.status) === filter.status)
       .filter((problem) => filter.categoria === "todas" || problem.categoria === filter.categoria)
       .filter((problem) => filter.gravidade === "todas" || problem.gravidade === filter.gravidade)
+      .filter((problem) => filter.vehicleId === "todos" || String(problem.vehicleId) === filter.vehicleId)
       .sort((a, b) => {
         const aOpen = isProblemOpen(a.status);
         const bOpen = isProblemOpen(b.status);
@@ -165,7 +167,7 @@ export const ProblemManagement = () => {
           <CardTitle>Filtros</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-4">
             <div>
               <label className="text-sm font-medium">Status</label>
               <Select value={filter.status} onValueChange={(value) => setFilter({ ...filter, status: value })}>
@@ -212,6 +214,23 @@ export const ProblemManagement = () => {
                   <SelectItem value="alta">Alta</SelectItem>
                   <SelectItem value="media">Media</SelectItem>
                   <SelectItem value="baixa">Baixa</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Veiculo</label>
+              <Select value={filter.vehicleId} onValueChange={(value) => setFilter({ ...filter, vehicleId: value })}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos</SelectItem>
+                  {data.vehicles.map((vehicle) => (
+                    <SelectItem key={vehicle.firestoreId || vehicle.id} value={String(vehicle.id)}>
+                      Veiculo {vehicle.numeroRegistro}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

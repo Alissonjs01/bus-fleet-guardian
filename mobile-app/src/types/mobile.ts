@@ -24,6 +24,9 @@ export interface TripSession {
   endTime?: string;
   startLocation?: GeoPointSnapshot | null;
   startLocationError?: GeoPointFailure | null;
+  startKm?: number;
+  endKm?: number;
+  distanceKm?: number;
   isActive: boolean;
 }
 
@@ -35,6 +38,7 @@ export interface ActiveRouteSession {
   startTime: string;
   startLocation?: GeoPointSnapshot | null;
   startLocationError?: GeoPointFailure | null;
+  startKm?: number;
 }
 
 export interface ProblemReport {
@@ -51,8 +55,8 @@ export interface ProblemReport {
 }
 
 export type OfflineAction =
-  | { type: 'saida'; data: { vehicleNumber: string; driverNumber: string; location?: GeoPointSnapshot | null; locationError?: GeoPointFailure | null }; timestamp: string }
-  | { type: 'retorno'; data: { vehicleNumber: string; driverNumber: string; problems: ProblemReport[]; location?: GeoPointSnapshot | null; locationError?: GeoPointFailure | null }; timestamp: string }
+  | { type: 'saida'; data: { vehicleNumber: string; driverNumber: string; startKm?: number; location?: GeoPointSnapshot | null; locationError?: GeoPointFailure | null }; timestamp: string }
+  | { type: 'retorno'; data: { vehicleNumber: string; driverNumber: string; problems: ProblemReport[]; endKm?: number; location?: GeoPointSnapshot | null; locationError?: GeoPointFailure | null }; timestamp: string }
   | { type: 'problema'; data: ProblemReport; timestamp: string };
 
 export interface APIResponse<T = unknown> {

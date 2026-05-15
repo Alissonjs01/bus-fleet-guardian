@@ -10,6 +10,7 @@ export interface Vehicle {
   tipo: VehicleType;
   vehicleType: VehicleType;
   status: 'operacao' | 'garagem' | 'manutencao' | 'pane_em_rota' | 'aguardando_auxilio';
+  currentKm?: number;
   createdAt: string;
   updatedAt?: string;
 }
@@ -79,6 +80,9 @@ export interface Trip {
   startLocationError?: GeoPointFailure | null;
   endLocation?: GeoPointSnapshot | null;
   endLocationError?: GeoPointFailure | null;
+  startKm?: number;
+  endKm?: number;
+  distanceKm?: number;
   problemas: Problem[];
   createdAt: string;
 }
@@ -97,6 +101,9 @@ export interface Route {
   startLocationError?: GeoPointFailure | null;
   endLocation?: GeoPointSnapshot | null;
   endLocationError?: GeoPointFailure | null;
+  startKm?: number;
+  endKm?: number;
+  distanceKm?: number;
   createdAt: string;
 }
 
