@@ -26,6 +26,7 @@ const emptyForm = {
 export const DriverManagement = () => {
   const [data, setData] = useState<FleetData | null>(null);
   const [editingDriver, setEditingDriver] = useState<Driver | null>(null);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [formData, setFormData] = useState(emptyForm);
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
@@ -39,6 +40,7 @@ export const DriverManagement = () => {
   const resetForm = () => {
     setFormData(emptyForm);
     setEditingDriver(null);
+    setIsCreateOpen(false);
   };
 
   const validateForm = () => {
@@ -133,6 +135,7 @@ export const DriverManagement = () => {
   };
 
   const handleEdit = (driver: Driver) => {
+    setIsCreateOpen(false);
     setEditingDriver(driver);
     setFormData({
       numeroRegistro: driver.numeroRegistro,
@@ -142,6 +145,12 @@ export const DriverManagement = () => {
       userId: driver.userId || "",
       status: normalizeDriverStatus(driver.status),
     });
+  };
+
+  const handleCreate = () => {
+    setEditingDriver(null);
+    setFormData(emptyForm);
+    setIsCreateOpen(true);
   };
 
   const handleDelete = async (driver: Driver) => {
@@ -278,7 +287,7 @@ export const DriverManagement = () => {
         <Button type="submit" className="flex-1" disabled={isSaving}>
           {isSaving ? "Salvando..." : mode === "edit" ? "Atualizar" : "Cadastrar"}
         </Button>
-        {mode === "edit" && (
+        {(mode === "edit" || mode === "create") && (
           <Button type="button" variant="outline" onClick={resetForm}>
             Cancelar
           </Button>
@@ -293,27 +302,21 @@ export const DriverManagement = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight">Gestao de Motoristas</h2>
-        <p className="text-muted-foreground">
-          Cadastro e controle dos motoristas
-        </p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">Gestao de Motoristas</h2>
+          <p className="text-muted-foreground">
+            Cadastro e controle dos motoristas
+          </p>
+        </div>
+        <Button onClick={handleCreate} className="w-full sm:w-auto">
+          <Plus className="mr-2 h-4 w-4" />
+          Adicionar motorista
+        </Button>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-3">
+      <div>
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Plus className="h-5 w-5" />
-              Novo Motorista
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {renderDriverForm("create")}
-          </CardContent>
-        </Card>
-
-        <Card className="md:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Users className="h-5 w-5" />
@@ -388,6 +391,18 @@ export const DriverManagement = () => {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={isCreateOpen} onOpenChange={(open) => open ? handleCreate() : resetForm()}>
+        <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Adicionar Motorista</DialogTitle>
+            <DialogDescription>
+              Cadastre um motorista para liberar o acesso operacional no mobile.
+            </DialogDescription>
+          </DialogHeader>
+          {renderDriverForm("create")}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!editingDriver} onOpenChange={(open) => !open && resetForm()}>
         <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
