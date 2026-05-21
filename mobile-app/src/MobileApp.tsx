@@ -53,6 +53,7 @@ export const MobileApp = () => {
         }
 
         mobileStorage.setCurrentDriver({
+          driverId: response.data.driverId,
           numeroRegistro: storedDriver.numeroRegistro,
           nome: response.data.nome,
           firestoreId: response.data.firestoreId,

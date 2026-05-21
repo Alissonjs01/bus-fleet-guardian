@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -28,7 +28,20 @@ export const TripStart = ({ onTripStarted, onBack }: TripStartProps) => {
   const driver = mobileStorage.getCurrentDriver();
   const { data } = useFleetData(driver?.companyId || "demo-company");
   const vehicles = data.vehicles;
+  const releasedVehicle = vehicles.find((vehicle) =>
+    vehicle.status === 'liberado' &&
+    (
+      (driver?.driverId !== undefined && vehicle.releasedToDriverId === driver.driverId) ||
+      normalizeRegistration(vehicle.releasedToDriverNumber || '') === normalizeRegistration(driver?.numeroRegistro || '')
+    )
+  );
   const selectedVehicle = vehicles.find((vehicle) => normalizeRegistration(vehicle.numeroRegistro) === normalizeRegistration(vehicleNumber));
+
+  useEffect(() => {
+    if (!vehicleNumber && releasedVehicle?.numeroRegistro) {
+      setVehicleNumber(releasedVehicle.numeroRegistro);
+    }
+  }, [releasedVehicle?.numeroRegistro, vehicleNumber]);
 
   const handleStartTrip = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -160,7 +173,7 @@ export const TripStart = ({ onTripStarted, onBack }: TripStartProps) => {
                   placeholder="Ex: 05"
                   value={vehicleNumber}
                   onChange={(e) => setVehicleNumber(e.target.value)}
-                  disabled={isLoading}
+                  disabled={isLoading || !!releasedVehicle}
                   className="text-center text-lg font-medium"
                 />
                 <datalist id="vehicle-options">
@@ -176,6 +189,11 @@ export const TripStart = ({ onTripStarted, onBack }: TripStartProps) => {
                 {selectedVehicle?.currentKm !== undefined && (
                   <p className="text-xs text-muted-foreground">
                     Ultimo KM registrado: {selectedVehicle.currentKm.toLocaleString("pt-BR")} km
+                  </p>
+                )}
+                {releasedVehicle && (
+                  <p className="text-xs text-info">
+                    Veiculo liberado pela garagem para este motorista.
                   </p>
                 )}
               </div>

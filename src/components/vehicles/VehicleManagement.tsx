@@ -397,6 +397,11 @@ export const VehicleManagement = () => {
                           </Badge>
                         )}
                       </div>
+                      {vehicle.status === "liberado" && (
+                        <div className="mt-1 text-sm text-muted-foreground">
+                          Liberado para {vehicle.releasedToDriverName || vehicle.releasedToDriverNumber || "motorista nao informado"}
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="flex flex-wrap justify-end gap-2">

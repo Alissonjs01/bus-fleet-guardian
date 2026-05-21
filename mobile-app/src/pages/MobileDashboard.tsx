@@ -8,11 +8,14 @@ import {
   AlertTriangle, 
   Clock, 
   History,
+  KeyRound,
   RefreshCw
 } from 'lucide-react';
 import { MobileLayout } from '../components/MobileLayout';
 import { mobileStorage } from '../utils/storage';
 import { mobileAPI } from '../services/api';
+import { useFleetData } from '@/hooks/useFleetData';
+import { normalizeRegistration } from '@/utils/localStorage';
 
 interface MobileDashboardProps {
   onStartTrip: () => void;
@@ -34,6 +37,14 @@ export const MobileDashboard = ({
   const [pendingProblems] = useState(() => mobileStorage.getPendingProblems());
   const [isOnline] = useState(() => navigator.onLine);
   const [lastSync, setLastSync] = useState<Date | null>(null);
+  const { data } = useFleetData(driver?.companyId || 'demo-company');
+  const releasedVehicle = data.vehicles.find((vehicle) =>
+    vehicle.status === 'liberado' &&
+    (
+      (driver?.driverId !== undefined && vehicle.releasedToDriverId === driver.driverId) ||
+      normalizeRegistration(vehicle.releasedToDriverNumber || '') === normalizeRegistration(driver?.numeroRegistro || '')
+    )
+  );
 
   const handleSync = async () => {
     try {
@@ -117,9 +128,30 @@ export const MobileDashboard = ({
               </div>
             ) : (
               <div className="space-y-4">
-                <div className="text-center">
-                  <p className="text-muted-foreground">Nenhuma viagem ativa</p>
-                </div>
+                {releasedVehicle ? (
+                  <div className="rounded-lg border border-info/30 bg-info/10 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="flex items-center gap-2 font-medium text-info">
+                          <KeyRound className="h-4 w-4" />
+                          Veiculo liberado
+                        </div>
+                        <p className="mt-1 text-2xl font-bold">Veiculo {releasedVehicle.numeroRegistro}</p>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          Chave liberada para iniciar rota
+                        </p>
+                        {releasedVehicle.releaseNotes && (
+                          <p className="mt-2 text-sm">{releasedVehicle.releaseNotes}</p>
+                        )}
+                      </div>
+                      <Badge className="bg-info text-info-foreground">Pronto</Badge>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center">
+                    <p className="text-muted-foreground">Nenhuma viagem ativa</p>
+                  </div>
+                )}
                 
                 <Button 
                   onClick={onStartTrip} 

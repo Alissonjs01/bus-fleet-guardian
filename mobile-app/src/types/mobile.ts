@@ -5,6 +5,7 @@ export type ProblemCategory = 'eletrica' | 'mecanica' | 'funilaria' | 'limpeza' 
 export type ProblemSeverity = 'baixa' | 'media' | 'alta' | 'critica';
 
 export interface MobileDriver {
+  driverId?: number;
   numeroRegistro: string;
   nome: string;
   firestoreId?: string;

@@ -325,6 +325,15 @@ export const DriverManagement = () => {
   const getDriverVehicleLabel = (driver: Driver | null) => {
     if (!driver || !data) return "";
 
+    const releasedVehicle = data.vehicles.find((vehicle) =>
+      vehicle.status === "liberado" &&
+      (
+        vehicle.releasedToDriverId === driver.id ||
+        normalizeRegistration(vehicle.releasedToDriverNumber || "") === normalizeRegistration(driver.numeroRegistro)
+      )
+    );
+    if (releasedVehicle) return `Veiculo ${releasedVehicle.numeroRegistro} liberado`;
+
     const activeRoute = data.routes.find((route) => route.driverId === driver.id && route.status === "active");
     if (!activeRoute) return "";
 
@@ -468,6 +477,13 @@ export const DriverManagement = () => {
               {data.drivers.map((driver) => {
                 const activeProblems = data.problems.filter((problem) => problem.driverId === driver.id && isProblemOpen(problem.status)).length;
                 const totalProblems = data.problems.filter((problem) => problem.driverId === driver.id).length;
+                const releasedVehicle = data.vehicles.find((vehicle) =>
+                  vehicle.status === "liberado" &&
+                  (
+                    vehicle.releasedToDriverId === driver.id ||
+                    normalizeRegistration(vehicle.releasedToDriverNumber || "") === normalizeRegistration(driver.numeroRegistro)
+                  )
+                );
 
                 return (
                   <div key={driver.firestoreId || driver.id} className="flex items-center justify-between rounded-lg border p-4">
@@ -488,6 +504,11 @@ export const DriverManagement = () => {
                           </div>
                         )}
                         <div className="mt-1 flex gap-2">
+                          {releasedVehicle && (
+                            <Badge className="bg-info text-info-foreground text-xs">
+                              Veiculo {releasedVehicle.numeroRegistro} liberado
+                            </Badge>
+                          )}
                           {activeProblems > 0 && (
                             <Badge variant="destructive" className="text-xs">
                               {activeProblems} problema{activeProblems !== 1 ? "s" : ""} ativo{activeProblems !== 1 ? "s" : ""}

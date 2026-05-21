@@ -162,7 +162,7 @@ class MobileAPIService {
     };
   }
 
-  async login(numeroRegistro: string): Promise<APIResponse<{ nome: string; firestoreId?: string; companyId?: string; status?: DriverStatus; activeRoute?: ActiveRouteSession }>> {
+  async login(numeroRegistro: string): Promise<APIResponse<{ driverId: number; nome: string; firestoreId?: string; companyId?: string; status?: DriverStatus; activeRoute?: ActiveRouteSession }>> {
     const driver = await getDriverByRegistration(numeroRegistro);
 
     if (!driver) return { success: false, message: "Registro de motorista não encontrado." };
@@ -179,6 +179,7 @@ class MobileAPIService {
         message: "Encontramos uma rota em andamento.",
         data: {
           nome: driver.name,
+          driverId: driver.id,
           firestoreId: driver.firestoreId,
           companyId: driver.companyId,
           status: driver.status,
@@ -195,6 +196,7 @@ class MobileAPIService {
       success: true,
       data: {
         nome: driver.name,
+        driverId: driver.id,
         firestoreId: driver.firestoreId,
         companyId: driver.companyId,
         status: driver.status,

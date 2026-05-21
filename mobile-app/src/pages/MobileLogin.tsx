@@ -35,6 +35,7 @@ export const MobileLogin = ({ onLoginSuccess }: MobileLoginProps) => {
       
       if (response.success && response.data) {
         const driver: MobileDriver = {
+          driverId: response.data.driverId,
           numeroRegistro: numeroRegistro.trim(),
           nome: response.data.nome,
           firestoreId: response.data.firestoreId,
