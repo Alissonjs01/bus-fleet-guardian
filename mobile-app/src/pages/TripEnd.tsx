@@ -9,8 +9,9 @@ import { Loader2, CheckCircle, AlertTriangle, Plus } from 'lucide-react';
 import { MobileLayout } from '../components/MobileLayout';
 import { mobileStorage } from '../utils/storage';
 import { mobileAPI } from '../services/api';
-import { ProblemReport } from '../types/mobile';
+import { ProblemReport, ProblemSeverity } from '../types/mobile';
 import { captureCurrentLocation } from '@/utils/geolocation';
+import { MOBILE_SEVERITY_CLASS } from '../utils/theme';
 
 interface TripEndProps {
   onTripEnded: () => void;
@@ -113,13 +114,9 @@ export const TripEnd = ({ onTripEnded, onReportProblem, onBack }: TripEndProps) 
   };
 
   const getProblemSeverityColor = (gravidade: string) => {
-    switch (gravidade) {
-      case 'critica': return 'bg-red-500';
-      case 'alta': return 'bg-orange-500';
-      case 'media': return 'bg-yellow-500';
-      case 'baixa': return 'bg-blue-500';
-      default: return 'bg-gray-500';
-    }
+    return gravidade in MOBILE_SEVERITY_CLASS
+      ? MOBILE_SEVERITY_CLASS[gravidade as ProblemSeverity]
+      : 'bg-muted text-muted-foreground';
   };
 
   return (
@@ -133,7 +130,7 @@ export const TripEnd = ({ onTripEnded, onReportProblem, onBack }: TripEndProps) 
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <CheckCircle className="h-5 w-5 text-green-500" />
+              <CheckCircle className="h-5 w-5 text-success" />
               Resumo da Viagem
             </CardTitle>
           </CardHeader>
@@ -194,7 +191,7 @@ export const TripEnd = ({ onTripEnded, onReportProblem, onBack }: TripEndProps) 
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5 text-orange-500" />
+                <AlertTriangle className="h-5 w-5 text-warning" />
                 Problemas Reportados
               </CardTitle>
               <Button
@@ -223,7 +220,7 @@ export const TripEnd = ({ onTripEnded, onReportProblem, onBack }: TripEndProps) 
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex items-center gap-2">
                         <Badge 
-                          className={`${getProblemSeverityColor(problem.gravidade)} text-white`}
+                          className={getProblemSeverityColor(problem.gravidade)}
                           variant="secondary"
                         >
                           {problem.gravidade}

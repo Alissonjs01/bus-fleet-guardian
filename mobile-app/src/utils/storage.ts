@@ -1,60 +1,51 @@
-import { MobileDriver, TripSession, ProblemReport, OfflineAction } from '../types/mobile';
+import { ActiveRouteSession, MobileDriver, TripSession, ProblemReport, OfflineAction } from '../types/mobile';
 
 const MOBILE_STORAGE_KEYS = {
   DRIVER: 'mobile_current_driver',
-  DRIVER_SESSION: 'fleet_driver_session',
   TRIP_SESSION: 'mobile_current_trip',
   PENDING_PROBLEMS: 'mobile_pending_problems',
   OFFLINE_QUEUE: 'mobile_offline_queue',
 };
 
-function todayKey() {
-  return new Date().toISOString().slice(0, 10);
+function parseStored<T>(key: string): T | null {
+  const stored = localStorage.getItem(key);
+  if (!stored) return null;
+
+  try {
+    return JSON.parse(stored) as T;
+  } catch {
+    localStorage.removeItem(key);
+    return null;
+  }
 }
 
-function isSessionValid(sessionDate?: string) {
-  return !!sessionDate && sessionDate === todayKey();
+function activeRouteToTrip(route: ActiveRouteSession): TripSession {
+  return {
+    id: route.tripId || route.routeId,
+    routeId: route.routeId,
+    tripId: route.tripId,
+    vehicleNumber: route.vehicleNumber,
+    driverNumber: route.driverNumber,
+    startTime: route.startTime,
+    startLocation: route.startLocation || null,
+    startLocationError: route.startLocationError || null,
+    startKm: route.startKm,
+    isActive: true,
+  };
 }
 
 export const mobileStorage = {
   setCurrentDriver: (driver: MobileDriver) => {
-    sessionStorage.setItem(MOBILE_STORAGE_KEYS.DRIVER_SESSION, JSON.stringify({
-      registrationNumber: driver.numeroRegistro,
-      driverId: driver.firestoreId,
-      sessionDate: todayKey(),
-    }));
-    localStorage.setItem(MOBILE_STORAGE_KEYS.DRIVER, JSON.stringify({ ...driver, sessionDate: todayKey() }));
+    localStorage.setItem(MOBILE_STORAGE_KEYS.DRIVER, JSON.stringify({ ...driver, isLoggedIn: true }));
   },
 
   getCurrentDriver: (): MobileDriver | null => {
-    const session = sessionStorage.getItem(MOBILE_STORAGE_KEYS.DRIVER_SESSION);
-    if (!session) return null;
-
-    const parsedSession = JSON.parse(session);
-    if (!isSessionValid(parsedSession.sessionDate)) {
-      mobileStorage.clearCurrentDriver();
-      mobileStorage.clearCurrentTrip();
-      mobileStorage.clearPendingProblems();
-      return null;
-    }
-
-    const stored = localStorage.getItem(MOBILE_STORAGE_KEYS.DRIVER);
-    if (!stored) return null;
-
-    const driver = JSON.parse(stored);
-    if (!isSessionValid(driver.sessionDate)) {
-      mobileStorage.clearCurrentDriver();
-      mobileStorage.clearCurrentTrip();
-      mobileStorage.clearPendingProblems();
-      return null;
-    }
-
-    return driver;
+    const driver = parseStored<MobileDriver>(MOBILE_STORAGE_KEYS.DRIVER);
+    return driver?.isLoggedIn ? driver : null;
   },
 
   clearCurrentDriver: () => {
     localStorage.removeItem(MOBILE_STORAGE_KEYS.DRIVER);
-    sessionStorage.removeItem(MOBILE_STORAGE_KEYS.DRIVER_SESSION);
   },
 
   setCurrentTrip: (trip: TripSession) => {
@@ -62,8 +53,7 @@ export const mobileStorage = {
   },
 
   getCurrentTrip: (): TripSession | null => {
-    const stored = localStorage.getItem(MOBILE_STORAGE_KEYS.TRIP_SESSION);
-    return stored ? JSON.parse(stored) : null;
+    return parseStored<TripSession>(MOBILE_STORAGE_KEYS.TRIP_SESSION);
   },
 
   clearCurrentTrip: () => {
@@ -77,8 +67,7 @@ export const mobileStorage = {
   },
 
   getPendingProblems: (): ProblemReport[] => {
-    const stored = localStorage.getItem(MOBILE_STORAGE_KEYS.PENDING_PROBLEMS);
-    return stored ? JSON.parse(stored) : [];
+    return parseStored<ProblemReport[]>(MOBILE_STORAGE_KEYS.PENDING_PROBLEMS) || [];
   },
 
   clearPendingProblems: () => {
@@ -98,8 +87,7 @@ export const mobileStorage = {
   },
 
   getOfflineQueue: (): OfflineAction[] => {
-    const stored = localStorage.getItem(MOBILE_STORAGE_KEYS.OFFLINE_QUEUE);
-    return stored ? JSON.parse(stored) : [];
+    return parseStored<OfflineAction[]>(MOBILE_STORAGE_KEYS.OFFLINE_QUEUE) || [];
   },
 
   clearOfflineQueue: () => {
@@ -114,5 +102,11 @@ export const mobileStorage = {
   hasActiveTrip: (): boolean => {
     const trip = mobileStorage.getCurrentTrip();
     return trip?.isActive || false;
+  },
+
+  restoreActiveRoute: (route: ActiveRouteSession): TripSession => {
+    const trip = activeRouteToTrip(route);
+    mobileStorage.setCurrentTrip(trip);
+    return trip;
   },
 };

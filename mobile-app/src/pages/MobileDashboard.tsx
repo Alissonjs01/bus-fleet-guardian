@@ -58,7 +58,7 @@ export const MobileDashboard = ({
     >
       <div className="space-y-6">
         {/* Welcome Card */}
-        <Card className="bg-gradient-to-r from-primary/10 to-accent/10 border-primary/20">
+        <Card className="mobile-premium-card bg-gradient-to-r from-primary/10 to-accent/10 border-primary/20">
           <CardHeader>
             <CardTitle className="text-xl">
               Bem-vindo, {driver?.nome}
@@ -90,7 +90,7 @@ export const MobileDashboard = ({
                       Início: {new Date(currentTrip.startTime).toLocaleTimeString()}
                     </p>
                   </div>
-                  <Badge variant="default" className="bg-green-500">
+                  <Badge variant="default" className="bg-success text-success-foreground">
                     Ativo
                   </Badge>
                 </div>
@@ -136,15 +136,15 @@ export const MobileDashboard = ({
 
         {/* Pending Problems Alert */}
         {pendingProblems.length > 0 && (
-          <Card className="border-orange-200 bg-orange-50">
+          <Card className="border-warning/35 bg-warning/10">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-orange-800">
+              <CardTitle className="flex items-center gap-2 text-warning">
                 <AlertTriangle className="h-5 w-5" />
                 Problemas Pendentes
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-orange-700">
+              <p className="text-sm text-warning">
                 {pendingProblems.length} problema(s) aguardando sincronização
               </p>
             </CardContent>

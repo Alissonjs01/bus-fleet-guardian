@@ -182,9 +182,9 @@ function groupEvents(events: TimelineEvent[]) {
 }
 
 function eventIcon(type: TimelineEventType) {
-  if (type === "route_start") return <PlayCircle className="h-4 w-4 text-green-500" />;
+  if (type === "route_start") return <PlayCircle className="h-4 w-4 text-success" />;
   if (type === "route_end") return <CheckCircle2 className="h-4 w-4 text-primary" />;
-  return <AlertTriangle className="h-4 w-4 text-orange-500" />;
+  return <AlertTriangle className="h-4 w-4 text-warning" />;
 }
 
 function eventBadgeVariant(type: TimelineEventType) {

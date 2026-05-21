@@ -12,6 +12,7 @@ import { mobileStorage } from '../utils/storage';
 import { mobileAPI } from '../services/api';
 import { ProblemCategory, ProblemReport as ProblemReportType, ProblemSeverity } from '../types/mobile';
 import { captureCurrentLocation } from '@/utils/geolocation';
+import { MOBILE_SEVERITY_CLASS, MOBILE_SEVERITY_DOT_CLASS } from '../utils/theme';
 
 interface ProblemReportProps {
   onProblemReported: () => void;
@@ -28,11 +29,11 @@ const categorias = [
 ] satisfies Array<{ value: ProblemCategory; label: string; icon: string }>;
 
 const gravidades = [
-  { value: 'baixa', label: 'Baixa', color: 'bg-blue-500' },
-  { value: 'media', label: 'Média', color: 'bg-yellow-500' },
-  { value: 'alta', label: 'Alta', color: 'bg-orange-500' },
-  { value: 'critica', label: 'Crítica', color: 'bg-red-500' },
-] satisfies Array<{ value: ProblemSeverity; label: string; color: string }>;
+  { value: 'baixa', label: 'Baixa' },
+  { value: 'media', label: 'Média' },
+  { value: 'alta', label: 'Alta' },
+  { value: 'critica', label: 'Crítica' },
+] satisfies Array<{ value: ProblemSeverity; label: string }>;
 
 export const ProblemReport = ({ onProblemReported, onBack }: ProblemReportProps) => {
   const [categoria, setCategoria] = useState<ProblemCategory | ''>('');
@@ -122,8 +123,9 @@ export const ProblemReport = ({ onProblemReported, onBack }: ProblemReportProps)
   };
 
   const getGravidadeColor = (value: string) => {
-    const grav = gravidades.find(g => g.value === value);
-    return grav?.color || 'bg-gray-500';
+    return value in MOBILE_SEVERITY_CLASS
+      ? MOBILE_SEVERITY_CLASS[value as ProblemSeverity]
+      : 'bg-muted text-muted-foreground';
   };
 
   return (
@@ -147,7 +149,7 @@ export const ProblemReport = ({ onProblemReported, onBack }: ProblemReportProps)
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-orange-500" />
+              <AlertTriangle className="h-5 w-5 text-warning" />
               Detalhes do Problema
             </CardTitle>
             <CardDescription>
@@ -188,7 +190,7 @@ export const ProblemReport = ({ onProblemReported, onBack }: ProblemReportProps)
                     {gravidades.map((grav) => (
                       <SelectItem key={grav.value} value={grav.value}>
                         <div className="flex items-center gap-2">
-                          <div className={`w-3 h-3 rounded-full ${grav.color}`} />
+                          <div className={`w-3 h-3 rounded-full ${MOBILE_SEVERITY_DOT_CLASS[grav.value]}`} />
                           <span>{grav.label}</span>
                         </div>
                       </SelectItem>
@@ -201,7 +203,7 @@ export const ProblemReport = ({ onProblemReported, onBack }: ProblemReportProps)
               {gravidade && (
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-muted-foreground">Gravidade selecionada:</span>
-                  <Badge className={`${getGravidadeColor(gravidade)} text-white`}>
+                  <Badge className={getGravidadeColor(gravidade)}>
                     {gravidades.find(g => g.value === gravidade)?.label}
                   </Badge>
                 </div>
@@ -286,9 +288,9 @@ export const ProblemReport = ({ onProblemReported, onBack }: ProblemReportProps)
         </Card>
 
         {/* Help Info */}
-        <Card className="bg-blue-50 border-blue-200">
+        <Card className="border-info/35 bg-info/10">
           <CardContent className="pt-4">
-            <div className="text-sm text-blue-800 space-y-1">
+            <div className="text-sm text-info space-y-1">
               <p className="font-medium">💡 Dicas:</p>
               <p>• Seja específico na descrição</p>
               <p>• Use gravidade "Crítica" para problemas de segurança</p>
