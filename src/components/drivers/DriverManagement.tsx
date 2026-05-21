@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,9 +10,9 @@ import { DRIVER_STATUS_LABELS, DRIVER_STATUSES, normalizeDriverStatus } from "@/
 import { useFleetData } from "@/hooks/useFleetData";
 import { useToast } from "@/hooks/use-toast";
 import { deleteDriver, isProblemOpen, upsertDriver } from "@/services/fleetService";
-import type { Driver, FleetData } from "@/types/fleet";
+import type { Driver, FleetData, Problem, Route, Vehicle } from "@/types/fleet";
 import { normalizeRegistration } from "@/utils/localStorage";
-import { Edit, Phone, Plus, Trash2, User, Users } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, Edit, History, KeyRound, Phone, PlayCircle, Plus, Trash2, User, Users } from "lucide-react";
 
 const emptyForm = {
   numeroRegistro: "",
@@ -23,14 +23,141 @@ const emptyForm = {
   status: DRIVER_STATUSES.ACTIVE as Driver["status"],
 };
 
+type DriverTimelineEventType = "route_start" | "route_end" | "problem" | "vehicle_released";
+
+interface DriverTimelineEvent {
+  id: string;
+  type: DriverTimelineEventType;
+  title: string;
+  description: string;
+  badge: string;
+  timestamp: string;
+}
+
+function getTimeValue(value?: string | null) {
+  if (!value) return 0;
+  const time = new Date(value).getTime();
+  return Number.isFinite(time) ? time : 0;
+}
+
+function formatTime(value: string) {
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return "--:--";
+  return date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+}
+
+function formatDay(value: string) {
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return "Sem data";
+
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+
+  const key = date.toLocaleDateString("pt-BR");
+  if (key === today.toLocaleDateString("pt-BR")) return "Hoje";
+  if (key === yesterday.toLocaleDateString("pt-BR")) return "Ontem";
+  return key;
+}
+
+function getVehicleLabel(vehicles: Vehicle[], vehicleId: number) {
+  const vehicle = vehicles.find((item) => item.id === vehicleId);
+  return vehicle?.numeroRegistro ? `Veiculo ${vehicle.numeroRegistro}` : `Veiculo ${vehicleId}`;
+}
+
+function problemLabel(problem: Problem) {
+  const labels: Record<Problem["categoria"], string> = {
+    eletrica: "Pane eletrica",
+    mecanica: "Pane mecanica",
+    funilaria: "Funilaria",
+    limpeza: "Limpeza",
+    pneus: "Pneus",
+    outros: "Problema reportado",
+  };
+  return labels[problem.categoria] || "Problema reportado";
+}
+
+function buildDriverTimeline(driver: Driver, data: FleetData) {
+  const events: DriverTimelineEvent[] = [];
+
+  data.routes
+    .filter((route) => route.driverId === driver.id)
+    .forEach((route: Route) => {
+      const routeKey = route.firestoreId || String(route.id);
+      events.push({
+        id: `route-start-${routeKey}`,
+        type: "route_start",
+        title: "Rota iniciada",
+        description: getVehicleLabel(data.vehicles, route.vehicleId),
+        badge: route.status === "active" ? "rota em andamento" : "rota iniciada",
+        timestamp: route.startedAt,
+      });
+
+      if (route.finishedAt) {
+        events.push({
+          id: `route-end-${routeKey}`,
+          type: "route_end",
+          title: "Rota finalizada",
+          description: getVehicleLabel(data.vehicles, route.vehicleId),
+          badge: "rota concluida",
+          timestamp: route.finishedAt,
+        });
+      }
+    });
+
+  data.problems
+    .filter((problem) => problem.driverId === driver.id)
+    .forEach((problem) => {
+      events.push({
+        id: `problem-${problem.firestoreId || problem.id}`,
+        type: "problem",
+        title: problemLabel(problem),
+        description: `${getVehicleLabel(data.vehicles, problem.vehicleId)} - ${problem.observacao}`,
+        badge: problem.routeFirestoreId || problem.routeId ? "pane em rota" : "problema reportado",
+        timestamp: problem.createdAt,
+      });
+    });
+
+  data.vehicles
+    .filter((vehicle) => vehicle.releasedToDriverId === driver.id && vehicle.releasedAt)
+    .forEach((vehicle) => {
+      events.push({
+        id: `release-${vehicle.firestoreId || vehicle.id}-${vehicle.releasedAt}`,
+        type: "vehicle_released",
+        title: "Veiculo liberado",
+        description: `Veiculo ${vehicle.numeroRegistro}${vehicle.releasedBy ? ` - por ${vehicle.releasedBy}` : ""}`,
+        badge: "veiculo liberado",
+        timestamp: vehicle.releasedAt!,
+      });
+    });
+
+  return events.sort((a, b) => getTimeValue(b.timestamp) - getTimeValue(a.timestamp));
+}
+
+function groupTimeline(events: DriverTimelineEvent[]) {
+  return events.reduce<Array<{ day: string; events: DriverTimelineEvent[] }>>((groups, event) => {
+    const day = formatDay(event.timestamp);
+    const group = groups.find((item) => item.day === day);
+    if (group) group.events.push(event);
+    else groups.push({ day, events: [event] });
+    return groups;
+  }, []);
+}
+
 export const DriverManagement = () => {
   const [data, setData] = useState<FleetData | null>(null);
   const [editingDriver, setEditingDriver] = useState<Driver | null>(null);
+  const [historyDriver, setHistoryDriver] = useState<Driver | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [formData, setFormData] = useState(emptyForm);
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
   const { data: realtimeData, loading, companyId } = useFleetData();
+  const timelineEvents = useMemo(
+    () => historyDriver && data ? buildDriverTimeline(historyDriver, data) : [],
+    [data, historyDriver],
+  );
+  const groupedTimeline = useMemo(() => groupTimeline(timelineEvents), [timelineEvents]);
 
   useEffect(() => {
     if (loading) return;
@@ -205,6 +332,19 @@ export const DriverManagement = () => {
     return vehicle?.numeroRegistro ? `Veiculo ${vehicle.numeroRegistro}` : `Veiculo ${activeRoute.vehicleId}`;
   };
 
+  const getTimelineIcon = (type: DriverTimelineEventType) => {
+    if (type === "route_start") return <PlayCircle className="h-4 w-4 text-success" />;
+    if (type === "route_end") return <CheckCircle2 className="h-4 w-4 text-primary" />;
+    if (type === "vehicle_released") return <KeyRound className="h-4 w-4 text-info" />;
+    return <AlertTriangle className="h-4 w-4 text-warning" />;
+  };
+
+  const getTimelineBadgeVariant = (type: DriverTimelineEventType) => {
+    if (type === "problem") return "destructive" as const;
+    if (type === "route_end") return "secondary" as const;
+    return "outline" as const;
+  };
+
   const renderDriverForm = (mode: "create" | "edit") => (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
@@ -365,6 +505,14 @@ export const DriverManagement = () => {
                       <Button
                         size="sm"
                         variant="outline"
+                        onClick={() => setHistoryDriver(driver)}
+                        title="Historico operacional"
+                      >
+                        <History className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
                         onClick={() => handleEdit(driver)}
                         title="Editar motorista"
                       >
@@ -413,6 +561,64 @@ export const DriverManagement = () => {
             </DialogDescription>
           </DialogHeader>
           {renderDriverForm("edit")}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!historyDriver} onOpenChange={(open) => !open && setHistoryDriver(null)}>
+        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Historico operacional</DialogTitle>
+            <DialogDescription>
+              {historyDriver?.nome} - Registro {historyDriver?.numeroRegistro}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-5">
+            {groupedTimeline.length > 0 ? (
+              groupedTimeline.map((group) => (
+                <section key={group.day} className="space-y-3">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+                    <Clock className="h-4 w-4" />
+                    {group.day}
+                  </div>
+
+                  <div className="space-y-3">
+                    {group.events.map((event) => (
+                      <div key={event.id} className="rounded-lg border p-4">
+                        <div className="flex gap-3">
+                          <div className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted">
+                            {getTimelineIcon(event.type)}
+                          </div>
+
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <h3 className="font-semibold leading-tight">{event.title}</h3>
+                                <p className="mt-1 text-sm text-muted-foreground">{event.description}</p>
+                              </div>
+                              <span className="shrink-0 text-sm font-medium">{formatTime(event.timestamp)}</span>
+                            </div>
+
+                            <Badge className="mt-3" variant={getTimelineBadgeVariant(event.type)}>
+                              {event.badge}
+                            </Badge>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              ))
+            ) : (
+              <div className="rounded-lg border p-8 text-center">
+                <History className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
+                <p className="font-medium">Nenhuma atividade encontrada</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Rotas iniciadas, finalizadas, problemas e liberacoes de veiculo aparecem aqui em tempo real.
+                </p>
+              </div>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>
