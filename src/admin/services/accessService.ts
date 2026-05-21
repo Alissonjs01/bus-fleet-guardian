@@ -17,11 +17,12 @@ function toIso(value: unknown): string | undefined {
 }
 
 function normalizeAccessUser(id: string, data: Record<string, unknown>): AppUser {
+  const role = data.role === "admin" || data.role === "motorista" || data.role === "lider_garagem" ? data.role : "gestor";
   return {
     id,
     name: String(data.name || data.email || "Gestor"),
     email: String(data.email || ""),
-    role: data.role === "admin" || data.role === "motorista" ? data.role : "gestor",
+    role,
     companyId: String(data.companyId || DEFAULT_COMPANY_ID),
     status: data.status === "blocked" || data.status === "pending" ? data.status : "active",
     createdAt: toIso(data.createdAt),
@@ -38,14 +39,14 @@ export function subscribeAccessUsers(callback: (users: AppUser[]) => void, onErr
       callback(
         snapshot.docs
           .map((item) => normalizeAccessUser(item.id, item.data()))
-          .filter((user) => user.role === "gestor"),
+          .filter((user) => user.role === "gestor" || user.role === "lider_garagem"),
       );
     },
     onError,
   );
 }
 
-export async function createManagerAccess(data: { name: string; email: string; password: string }) {
+export async function createManagerAccess(data: { name: string; email: string; password: string; role?: "gestor" | "lider_garagem" }) {
   const secondaryName = `manager-access-${Date.now()}`;
   const secondaryApp = initializeApp(firebaseConfig, secondaryName);
   const secondaryAuth = getAuth(secondaryApp);
@@ -55,7 +56,7 @@ export async function createManagerAccess(data: { name: string; email: string; p
     await setDoc(doc(db, "users", credential.user.uid), {
       name: data.name.trim() || data.email.trim().toLowerCase(),
       email: data.email.trim().toLowerCase(),
-      role: "gestor",
+      role: data.role || "gestor",
       companyId: DEFAULT_COMPANY_ID,
       status: "active",
       createdAt: serverTimestamp(),

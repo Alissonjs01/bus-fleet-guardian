@@ -1,5 +1,6 @@
 import {
   addDoc,
+  arrayUnion,
   collection,
   deleteDoc,
   doc,
@@ -17,7 +18,8 @@ import {
 import { db } from "@/integrations/firebase/client";
 import { normalizeDriverStatus } from "@/constants/driverStatus";
 import { normalizeVehicleType } from "@/constants/vehicleTypes";
-import type { Driver, FleetData, Problem, Revision, Route, Trip, Vehicle } from "@/types/fleet";
+import type { AppUser } from "@/types/auth";
+import type { Driver, FleetData, OperationalNote, Problem, Revision, Route, Trip, Vehicle } from "@/types/fleet";
 import { getInitialFleetData, saveFleetCache } from "@/utils/localStorage";
 import { normalizeRegistration } from "@/utils/localStorage";
 
@@ -52,6 +54,12 @@ function normalizeVehicle(id: string, data: DocumentData): Vehicle {
     vehicleType,
     status: data.status || "garagem",
     currentKm: data.currentKm === undefined || data.currentKm === null ? undefined : Number(data.currentKm),
+    releasedToDriverId: data.releasedToDriverId === undefined || data.releasedToDriverId === null ? null : Number(data.releasedToDriverId),
+    releasedToDriverNumber: data.releasedToDriverNumber || null,
+    releasedToDriverName: data.releasedToDriverName || null,
+    releasedAt: data.releasedAt ? toIso(data.releasedAt) : null,
+    releasedBy: data.releasedBy || null,
+    releaseNotes: data.releaseNotes || null,
     createdAt: toIso(data.createdAt),
     updatedAt: toIso(data.updatedAt),
   };
@@ -123,6 +131,7 @@ function normalizeProblem(id: string, data: DocumentData): Problem {
     locationError: data.locationError || null,
     routeId: data.routeId ? Number(data.routeId) : undefined,
     routeFirestoreId: data.routeFirestoreId || undefined,
+    operationalNotes: Array.isArray(data.operationalNotes) ? data.operationalNotes : [],
   };
 }
 
@@ -222,7 +231,19 @@ function serializeRecord(companyId: string, collectionName: FleetCollectionName,
   if (collectionName === "vehicles") {
     const vehicle = record as Vehicle;
     const vehicleType = normalizeVehicleType(vehicle.vehicleType || vehicle.tipo);
-    return withoutUndefined({ ...base, plate: vehicle.numeroRegistro, tipo: vehicleType, vehicleType, currentKm: vehicle.currentKm });
+    return withoutUndefined({
+      ...base,
+      plate: vehicle.numeroRegistro,
+      tipo: vehicleType,
+      vehicleType,
+      currentKm: vehicle.currentKm,
+      releasedToDriverId: vehicle.releasedToDriverId ?? null,
+      releasedToDriverNumber: vehicle.releasedToDriverNumber ?? null,
+      releasedToDriverName: vehicle.releasedToDriverName ?? null,
+      releasedAt: vehicle.releasedAt ?? null,
+      releasedBy: vehicle.releasedBy ?? null,
+      releaseNotes: vehicle.releaseNotes ?? null,
+    });
   }
 
   if (collectionName === "drivers") {
@@ -418,6 +439,12 @@ export async function upsertVehicle(companyId: string, vehicle: Vehicle) {
     tipo: normalizeVehicleType(vehicle.vehicleType || vehicle.tipo),
       vehicleType: normalizeVehicleType(vehicle.vehicleType || vehicle.tipo),
       currentKm: vehicle.currentKm,
+      releasedToDriverId: vehicle.releasedToDriverId ?? null,
+      releasedToDriverNumber: vehicle.releasedToDriverNumber ?? null,
+      releasedToDriverName: vehicle.releasedToDriverName ?? null,
+      releasedAt: vehicle.releasedAt ?? null,
+      releasedBy: vehicle.releasedBy ?? null,
+      releaseNotes: vehicle.releaseNotes ?? null,
       createdAt: vehicle.createdAt || new Date().toISOString(),
   }));
 
@@ -436,6 +463,46 @@ export async function upsertVehicle(companyId: string, vehicle: Vehicle) {
 export async function deleteVehicle(vehicle: Vehicle) {
   if (!vehicle.firestoreId) return;
   await deleteDoc(doc(db, "vehicles", vehicle.firestoreId));
+}
+
+export async function releaseVehicleToDriver(
+  companyId: string,
+  vehicle: Vehicle,
+  driver: Driver,
+  releasedBy: AppUser,
+  releaseNotes?: string,
+) {
+  if (!vehicle.firestoreId) throw new Error("Veiculo sem identificador Firestore");
+  if (vehicle.status !== "garagem") throw new Error("Apenas veiculos na garagem podem ser liberados.");
+
+  await updateDoc(doc(db, "vehicles", vehicle.firestoreId), withoutUndefined({
+    status: "liberado",
+    releasedToDriverId: driver.id,
+    releasedToDriverNumber: driver.registrationNumber || driver.numeroRegistro,
+    releasedToDriverName: driver.name || driver.nome,
+    releasedAt: new Date().toISOString(),
+    releasedBy: releasedBy.name || releasedBy.email,
+    releaseNotes: releaseNotes?.trim() || null,
+    companyId,
+    updatedAt: serverTimestamp(),
+  }));
+}
+
+export async function returnReleasedVehicleToGarage(companyId: string, vehicle: Vehicle) {
+  if (!vehicle.firestoreId) throw new Error("Veiculo sem identificador Firestore");
+  if (vehicle.status !== "liberado") throw new Error("Apenas veiculos liberados podem voltar para garagem por aqui.");
+
+  await updateDoc(doc(db, "vehicles", vehicle.firestoreId), {
+    status: "garagem",
+    releasedToDriverId: null,
+    releasedToDriverNumber: null,
+    releasedToDriverName: null,
+    releasedAt: null,
+    releasedBy: null,
+    releaseNotes: null,
+    companyId,
+    updatedAt: serverTimestamp(),
+  });
 }
 
 export async function upsertDriver(companyId: string, driver: Driver) {
@@ -576,6 +643,21 @@ export async function updateProblem(companyId: string, problem: Problem) {
 
   await batch.commit();
   return ref.id;
+}
+
+export async function addOperationalNoteToProblem(companyId: string, problem: Problem, note: Omit<OperationalNote, "id" | "createdAt">) {
+  if (!problem.firestoreId) throw new Error("Ocorrencia sem identificador Firestore");
+
+  await updateDoc(doc(db, "issues", problem.firestoreId), {
+    companyId,
+    status: normalizeProblemStatus(problem.status) === "aberta" ? "em_andamento" : normalizeProblemStatus(problem.status),
+    operationalNotes: arrayUnion({
+      ...note,
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      createdAt: new Date().toISOString(),
+    }),
+    updatedAt: serverTimestamp(),
+  });
 }
 
 export async function upsertRevision(companyId: string, revision: Revision) {

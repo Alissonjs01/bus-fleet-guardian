@@ -27,6 +27,7 @@ export const Dashboard = () => {
     return {
       totalVehicles: data.vehicles.length,
       inOperation: data.vehicles.filter((vehicle) => vehicle.status === "operacao").length,
+      released: data.vehicles.filter((vehicle) => vehicle.status === "liberado").length,
       inGarage: data.vehicles.filter((vehicle) => vehicle.status === "garagem").length,
       inMaintenance: data.vehicles.filter((vehicle) => vehicle.status === "manutencao").length,
       inRouteIssue: data.vehicles.filter((vehicle) => vehicle.status === "pane_em_rota" || vehicle.status === "aguardando_auxilio").length,
@@ -70,6 +71,7 @@ export const Dashboard = () => {
   const getVehicleStatusLabel = (status: string) => {
     switch (status) {
       case "operacao": return "Em Operacao";
+      case "liberado": return "Liberado";
       case "garagem": return "Na Garagem";
       case "manutencao": return "Em Manutencao";
       case "pane_em_rota": return "Pane em Rota";
@@ -299,6 +301,10 @@ export const Dashboard = () => {
             <div className="text-center p-4 bg-muted border rounded-lg">
               <div className="text-2xl font-bold">{stats.inGarage}</div>
               <div className="text-sm text-muted-foreground">Na Garagem</div>
+            </div>
+            <div className="text-center p-4 bg-info/10 border border-info/20 rounded-lg">
+              <div className="text-2xl font-bold text-info">{stats.released}</div>
+              <div className="text-sm text-muted-foreground">Liberados</div>
             </div>
             <div className="text-center p-4 bg-warning/10 border border-warning/20 rounded-lg">
               <div className="text-2xl font-bold text-warning">{stats.inMaintenance}</div>

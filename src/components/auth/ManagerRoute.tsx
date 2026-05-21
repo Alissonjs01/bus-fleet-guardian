@@ -7,7 +7,7 @@ export function ManagerRoute({ children }: { children: ReactNode }) {
 
   if (!user) return <Navigate to="/login" replace />;
   if (user.role === "motorista") return <Navigate to="/mobile" replace />;
-  if (!["admin", "gestor"].includes(user.role)) return <Navigate to="/login" replace />;
+  if (!["admin", "gestor", "lider_garagem"].includes(user.role)) return <Navigate to="/login" replace />;
 
   return <>{children}</>;
 }

@@ -97,6 +97,8 @@ class MobileAPIService {
       id: vehicleDoc.id,
       legacyId: Number(vehicle.legacyId || vehicle.id || 0),
       status: String(vehicle.status || "garagem"),
+      releasedToDriverId: vehicle.releasedToDriverId === undefined || vehicle.releasedToDriverId === null ? null : Number(vehicle.releasedToDriverId),
+      releasedToDriverNumber: vehicle.releasedToDriverNumber ? String(vehicle.releasedToDriverNumber) : null,
       currentKm: vehicle.currentKm === undefined || vehicle.currentKm === null ? undefined : Number(vehicle.currentKm),
       data: vehicle,
     };
@@ -230,7 +232,12 @@ class MobileAPIService {
       return { success: false, message: "Motorista ja possui rota ativa." };
     }
 
-    if (vehicle.status !== "garagem") {
+    const vehicleReleasedToThisDriver = vehicle.status === "liberado" && (
+      vehicle.releasedToDriverId === driver.id ||
+      normalizeRegistration(vehicle.releasedToDriverNumber || "") === normalizeRegistration(driver.registrationNumber || driverNumber)
+    );
+
+    if (vehicle.status !== "garagem" && !vehicleReleasedToThisDriver) {
       return { success: false, message: "Veiculo indisponivel para iniciar rota." };
     }
 
@@ -252,6 +259,12 @@ class MobileAPIService {
     batch.update(doc(db, "vehicles", vehicle.id), {
       status: "operacao",
       currentKm: normalizedStartKm,
+      releasedToDriverId: null,
+      releasedToDriverNumber: null,
+      releasedToDriverName: null,
+      releasedAt: null,
+      releasedBy: null,
+      releaseNotes: null,
       updatedAt: serverTimestamp(),
     });
 

@@ -7,10 +7,13 @@ import { ProblemManagement } from "@/components/problems/ProblemManagement";
 import { Revisions } from "@/components/revisions/Revisions";
 import { Reports } from "@/components/reports/Reports";
 import { Backup } from "@/components/backup/Backup";
+import { GarageOperations } from "@/components/garage/GarageOperations";
 import { useFleetData } from "@/hooks/useFleetData";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Index = () => {
-  const [activeView, setActiveView] = useState("dashboard");
+  const { user } = useAuth();
+  const [activeView, setActiveView] = useState(() => user?.role === "lider_garagem" ? "garage" : "dashboard");
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
   const { data } = useFleetData();
   const dataVersion = [
@@ -28,6 +31,8 @@ const Index = () => {
     switch (activeView) {
       case "dashboard":
         return <Dashboard />;
+      case "garage":
+        return <GarageOperations />;
       case "vehicles":
         return <VehicleManagement />;
       case "drivers":
@@ -39,9 +44,10 @@ const Index = () => {
       case "reports":
         return <Reports />;
       case "backup":
+        if (user?.role !== "admin") return <Dashboard />;
         return <Backup />;
       default:
-        return <Dashboard />;
+        return user?.role === "lider_garagem" ? <GarageOperations /> : <Dashboard />;
     }
   };
 

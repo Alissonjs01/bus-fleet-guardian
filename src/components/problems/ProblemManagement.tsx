@@ -422,6 +422,20 @@ export const ProblemManagement = () => {
                         <div className="mt-1">{problem.observacao}</div>
                       </div>
 
+                      {!!problem.operationalNotes?.length && (
+                        <div className="mt-3 rounded-md border p-3 text-sm">
+                          <div className="text-muted-foreground">Acompanhamento da garagem</div>
+                          <div className="mt-2 space-y-2">
+                            {problem.operationalNotes.map((note) => (
+                              <div key={note.id} className="rounded-md bg-muted/60 px-3 py-2">
+                                <div className="font-medium">{note.authorName || "Operacao"}</div>
+                                <div>{note.text}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
                       <div className="mt-3 rounded-md border p-3 text-sm">
                         <div className="text-muted-foreground">Localizacao</div>
                         {hasLocation && problem.location ? (

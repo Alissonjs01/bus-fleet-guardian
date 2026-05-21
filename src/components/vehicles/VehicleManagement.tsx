@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { deleteVehicle, isProblemOpen, upsertVehicle } from "@/services/fleetService";
 import type { FleetData, Vehicle } from "@/types/fleet";
 import { normalizeRegistration } from "@/utils/localStorage";
-import { Activity, AlertTriangle, Car, Edit, History, Home, Plus, Trash2, Wrench } from "lucide-react";
+import { Activity, AlertTriangle, Car, Edit, History, Home, KeyRound, Plus, Trash2, Wrench } from "lucide-react";
 
 const emptyForm = {
   numeroRegistro: "",
@@ -167,6 +167,7 @@ export const VehicleManagement = () => {
   const getStatusIcon = (status: Vehicle["status"]) => {
     switch (status) {
       case "operacao": return <Activity className="h-4 w-4 text-success" />;
+      case "liberado": return <KeyRound className="h-4 w-4 text-info" />;
       case "manutencao": return <Wrench className="h-4 w-4 text-warning" />;
       case "pane_em_rota": return <AlertTriangle className="h-4 w-4 text-destructive" />;
       case "aguardando_auxilio": return <AlertTriangle className="h-4 w-4 text-warning" />;
@@ -177,6 +178,7 @@ export const VehicleManagement = () => {
   const getStatusClassName = (status: Vehicle["status"]) => {
     switch (status) {
       case "operacao": return "bg-success text-success-foreground hover:bg-success/80";
+      case "liberado": return "bg-info text-info-foreground hover:bg-info/80";
       case "manutencao": return "bg-warning text-warning-foreground hover:bg-warning/80";
       case "pane_em_rota": return "bg-destructive text-destructive-foreground hover:bg-destructive/80";
       case "aguardando_auxilio": return "bg-warning text-warning-foreground hover:bg-warning/80";
@@ -187,6 +189,7 @@ export const VehicleManagement = () => {
   const getStatusLabel = (status: Vehicle["status"]) => {
     switch (status) {
       case "operacao": return "Em Operacao";
+      case "liberado": return "Liberado";
       case "manutencao": return "Em Manutencao";
       case "pane_em_rota": return "Pane em Rota";
       case "aguardando_auxilio": return "Aguardando Auxilio";
@@ -279,6 +282,7 @@ export const VehicleManagement = () => {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="garagem">Na Garagem</SelectItem>
+            <SelectItem value="liberado">Liberado</SelectItem>
             <SelectItem value="operacao">Em Operacao</SelectItem>
             <SelectItem value="manutencao">Em Manutencao</SelectItem>
             <SelectItem value="pane_em_rota">Pane em Rota</SelectItem>

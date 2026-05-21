@@ -9,8 +9,14 @@ export interface Vehicle {
   numeroRegistro: string;
   tipo: VehicleType;
   vehicleType: VehicleType;
-  status: 'operacao' | 'garagem' | 'manutencao' | 'pane_em_rota' | 'aguardando_auxilio';
+  status: 'garagem' | 'liberado' | 'operacao' | 'manutencao' | 'pane_em_rota' | 'aguardando_auxilio';
   currentKm?: number;
+  releasedToDriverId?: number | null;
+  releasedToDriverNumber?: string | null;
+  releasedToDriverName?: string | null;
+  releasedAt?: string | null;
+  releasedBy?: string | null;
+  releaseNotes?: string | null;
   createdAt: string;
   updatedAt?: string;
 }
@@ -51,6 +57,16 @@ export interface Problem {
   locationError?: GeoPointFailure | null;
   routeId?: number;
   routeFirestoreId?: string;
+  operationalNotes?: OperationalNote[];
+}
+
+export interface OperationalNote {
+  id: string;
+  text: string;
+  authorId?: string;
+  authorName?: string;
+  authorRole?: string;
+  createdAt: string;
 }
 
 export interface Revision {
@@ -119,6 +135,7 @@ export interface FleetData {
 export interface DashboardStats {
   totalVehicles: number;
   inOperation: number;
+  released: number;
   inGarage: number;
   inMaintenance: number;
   inRouteIssue: number;

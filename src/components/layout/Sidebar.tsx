@@ -10,6 +10,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  Warehouse,
   X,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -25,6 +26,7 @@ interface SidebarProps {
 
 const menuItems = [
   { id: 'dashboard', label: 'Painel', icon: LayoutDashboard },
+  { id: 'garage', label: 'Garagem', icon: Warehouse },
   { id: 'vehicles', label: 'Veículos', icon: Car },
   { id: 'drivers', label: 'Motoristas', icon: Users },
   { id: 'revisions', label: 'Revisões', icon: ClipboardCheck },
@@ -33,9 +35,17 @@ const menuItems = [
   { id: 'backup', label: 'Backup', icon: HardDrive },
 ];
 
+const menuByRole = {
+  admin: menuItems,
+  gestor: menuItems.filter((item) => item.id !== "backup"),
+  lider_garagem: menuItems.filter((item) => ["garage", "vehicles", "problems"].includes(item.id)),
+  motorista: [],
+};
+
 export const Sidebar = ({ activeView, onViewChange, isCollapsed, onToggleCollapse }: SidebarProps) => {
   const navigate = useNavigate();
-  const { setUser } = useAuth();
+  const { user, setUser } = useAuth();
+  const visibleMenuItems = user ? menuByRole[user.role] : [];
 
   const handleLogout = async () => {
     await logoutFirebase();
@@ -74,7 +84,7 @@ export const Sidebar = ({ activeView, onViewChange, isCollapsed, onToggleCollaps
 
       {/* Navigation */}
       <nav className="flex-1 p-2 space-y-1">
-        {menuItems.map((item) => {
+        {visibleMenuItems.map((item) => {
           const Icon = item.icon;
           return (
             <Button

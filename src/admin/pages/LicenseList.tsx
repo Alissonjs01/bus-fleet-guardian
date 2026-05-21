@@ -6,6 +6,7 @@ import { createManagerAccess, subscribeAccessUsers, updateAccessUserStatus } fro
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { formatDateTime } from "@/utils/dateFormat";
@@ -22,6 +23,7 @@ const LicenseList = () => {
     name: "",
     email: "",
     password: "",
+    role: "gestor" as "gestor" | "lider_garagem",
   });
 
   useEffect(() => {
@@ -82,10 +84,10 @@ const LicenseList = () => {
     setIsSaving(true);
     try {
       await createManagerAccess(formData);
-      setFormData({ name: "", email: "", password: "" });
+      setFormData({ name: "", email: "", password: "", role: "gestor" });
       toast({
         title: "Acesso criado",
-        description: "Envie este email e senha para o gestor acessar o painel.",
+        description: "Envie este email e senha para o usuario acessar o painel.",
       });
     } catch (error) {
       toast({
@@ -138,7 +140,7 @@ const LicenseList = () => {
       <div className="p-6 space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Acessos</h1>
-          <p className="text-muted-foreground">Crie emails e senhas para gestores acessarem o painel.</p>
+          <p className="text-muted-foreground">Crie emails e senhas para gestores e lideres de garagem.</p>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-3">
@@ -146,11 +148,24 @@ const LicenseList = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <UserPlus className="h-5 w-5" />
-                Novo Acesso Gestor
+                Novo Acesso
               </CardTitle>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleCreateAccess} className="space-y-4">
+                <div>
+                  <label className="text-sm text-muted-foreground mb-2 block">Cargo</label>
+                  <Select value={formData.role} onValueChange={(role: "gestor" | "lider_garagem") => setFormData({ ...formData, role })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="gestor">Gestor</SelectItem>
+                      <SelectItem value="lider_garagem">Lider de garagem</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 <div>
                   <label className="text-sm text-muted-foreground mb-2 block">Nome</label>
                   <Input
@@ -240,6 +255,7 @@ const LicenseList = () => {
                             <div className="flex flex-wrap items-center gap-2">
                               <div className="font-medium">{user.name}</div>
                               {getStatusBadge(user.status)}
+                              <Badge variant="outline">{user.role === "lider_garagem" ? "Lider de garagem" : "Gestor"}</Badge>
                             </div>
                             <div className="mt-1 text-sm text-muted-foreground">{user.email}</div>
                             <div className="mt-1 text-xs text-muted-foreground">

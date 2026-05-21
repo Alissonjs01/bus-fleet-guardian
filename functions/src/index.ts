@@ -6,7 +6,7 @@ admin.initializeApp();
 
 const db = admin.firestore();
 
-type UserRole = "admin" | "gestor" | "motorista";
+type UserRole = "admin" | "gestor" | "lider_garagem" | "motorista";
 type LicenseStatus = "active" | "blocked" | "expired" | "pending";
 
 function hashCode(code: string) {
