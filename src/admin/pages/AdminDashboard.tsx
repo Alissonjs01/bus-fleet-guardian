@@ -9,24 +9,34 @@ import {
   Key,
   Loader2,
   Monitor,
+  Power,
   Radio,
   Shield,
   Sparkles,
   UserCog,
+  Users,
+  Wifi,
   XCircle,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { AdminLayout } from "@/admin/components/AdminLayout";
 import { useAdminAuth } from "@/admin/hooks/useAdminAuth";
 import { subscribeAccessUsers } from "@/admin/services/accessService";
-import { getActivityLogs, subscribeLicenses } from "@/admin/services/adminService";
+import {
+  subscribeLicenses,
+  subscribeOperationalEvents,
+  subscribeUserSessions,
+  terminateUserSession,
+  type OperationalEvent,
+  type UserSession,
+} from "@/admin/services/adminService";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useFleetData } from "@/hooks/useFleetData";
 import { db } from "@/integrations/firebase/client";
 import type { AppUser } from "@/types/auth";
-import type { ActivityLog, License } from "@/types/license";
+import type { License } from "@/types/license";
 import { formatDateTime } from "@/utils/dateFormat";
 
 interface ManagerAccessRequest {
@@ -35,7 +45,6 @@ interface ManagerAccessRequest {
   answer: string;
   status: "pending" | "approved" | "rejected";
   createdAt?: string;
-  userAgent?: string;
 }
 
 function toIso(value: unknown): string | undefined {
@@ -47,37 +56,43 @@ function toIso(value: unknown): string | undefined {
   return undefined;
 }
 
-function AdminStatusBadge({ status }: { status: string }) {
-  if (status === "active" || status === "approved") {
-    return <Badge className="bg-success text-success-foreground">Ativo</Badge>;
-  }
-  if (status === "blocked" || status === "rejected") {
-    return <Badge variant="destructive">Bloqueado</Badge>;
-  }
-  if (status === "expired") {
-    return <Badge className="bg-warning text-warning-foreground">Expirado</Badge>;
-  }
-  return <Badge variant="secondary">Pendente</Badge>;
+function isSessionOnline(session: UserSession) {
+  if (session.status !== "online" || !session.lastSeenAt) return false;
+  return Date.now() - new Date(session.lastSeenAt).getTime() < 90000;
 }
 
-function MetricCard({
-  title,
-  value,
-  detail,
-  icon: Icon,
-  tone = "primary",
-}: {
+function roleLabel(role: string) {
+  const labels: Record<string, string> = {
+    admin: "Admin",
+    gestor: "Gestor",
+    lider_garagem: "Lider de garagem",
+    motorista: "Motorista",
+  };
+  return labels[role] || role || "Usuario";
+}
+
+function relativeActivity(value?: string) {
+  if (!value) return "sem atividade";
+  const diff = Date.now() - new Date(value).getTime();
+  if (diff < 60000) return "agora";
+  if (diff < 3600000) return `${Math.floor(diff / 60000)}min`;
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h`;
+  return formatDateTime(value);
+}
+
+function MetricCard({ title, value, detail, icon: Icon, tone = "primary" }: {
   title: string;
   value: string | number;
   detail: string;
   icon: typeof Shield;
-  tone?: "primary" | "success" | "warning" | "destructive";
+  tone?: "primary" | "success" | "warning" | "destructive" | "info";
 }) {
   const toneClass = {
     primary: "text-primary bg-primary/10 border-primary/20",
     success: "text-success bg-success/10 border-success/20",
     warning: "text-warning bg-warning/10 border-warning/20",
     destructive: "text-destructive bg-destructive/10 border-destructive/20",
+    info: "text-info bg-info/10 border-info/20",
   }[tone];
 
   return (
@@ -98,49 +113,53 @@ function MetricCard({
   );
 }
 
+function EventDot({ event }: { event: OperationalEvent }) {
+  const className = {
+    success: "bg-success shadow-[0_0_18px_rgba(34,197,94,0.45)]",
+    warning: "bg-warning shadow-[0_0_18px_rgba(245,158,11,0.45)]",
+    destructive: "bg-destructive shadow-[0_0_18px_rgba(239,68,68,0.45)]",
+    info: "bg-info shadow-[0_0_18px_rgba(59,130,246,0.45)]",
+    muted: "bg-muted-foreground",
+  }[event.tone];
+  return <span className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${className}`} />;
+}
+
 const AdminDashboard = () => {
   const { requireAuth, isLoading: authLoading, isAuthenticated } = useAdminAuth();
   const { data: fleetData, loading: fleetLoading } = useFleetData();
   const [users, setUsers] = useState<AppUser[]>([]);
   const [licenses, setLicenses] = useState<License[]>([]);
+  const [sessions, setSessions] = useState<UserSession[]>([]);
+  const [events, setEvents] = useState<OperationalEvent[]>([]);
   const [requests, setRequests] = useState<ManagerAccessRequest[]>([]);
-  const [logs, setLogs] = useState<ActivityLog[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [savingRequestId, setSavingRequestId] = useState<string | null>(null);
+  const [terminatingSessionId, setTerminatingSessionId] = useState<string | null>(null);
 
   useEffect(() => {
     requireAuth();
   }, [requireAuth]);
 
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated) return undefined;
 
-    setIsLoading(true);
     const unsubscribers = [
-      subscribeAccessUsers((nextUsers) => setUsers(nextUsers)),
-      subscribeLicenses((nextLicenses) => setLicenses(nextLicenses)),
-      onSnapshot(
-        query(collection(db, "managerAccessRequests"), orderBy("createdAt", "desc")),
-        (snapshot) => {
-          setRequests(snapshot.docs.map((item) => {
-            const data = item.data();
-            return {
-              id: item.id,
-              email: String(data.email || ""),
-              answer: String(data.answer || data.accessKey || ""),
-              status: data.status === "approved" || data.status === "rejected" ? data.status : "pending",
-              createdAt: toIso(data.createdAt),
-              userAgent: data.userAgent ? String(data.userAgent) : undefined,
-            };
-          }));
-        },
-      ),
+      subscribeAccessUsers(setUsers),
+      subscribeLicenses(setLicenses),
+      subscribeUserSessions(setSessions),
+      subscribeOperationalEvents(setEvents),
+      onSnapshot(query(collection(db, "managerAccessRequests"), orderBy("createdAt", "desc")), (snapshot) => {
+        setRequests(snapshot.docs.map((item) => {
+          const data = item.data();
+          return {
+            id: item.id,
+            email: String(data.email || ""),
+            answer: String(data.answer || data.accessKey || ""),
+            status: data.status === "approved" || data.status === "rejected" ? data.status : "pending",
+            createdAt: toIso(data.createdAt),
+          };
+        }));
+      }),
     ];
-
-    getActivityLogs().then((result) => {
-      setLogs((result.logs || []).slice(0, 6));
-      setIsLoading(false);
-    }).catch(() => setIsLoading(false));
 
     return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
   }, [isAuthenticated]);
@@ -157,16 +176,30 @@ const AdminDashboard = () => {
     }
   };
 
-  const pendingRequests = requests.filter((request) => request.status === "pending");
+  const handleTerminateSession = async (sessionId: string) => {
+    setTerminatingSessionId(sessionId);
+    try {
+      await terminateUserSession(sessionId);
+    } finally {
+      setTerminatingSessionId(null);
+    }
+  };
+
+  const onlineSessions = sessions.filter(isSessionOnline);
   const activeUsers = users.filter((user) => user.status === "active").length;
-  const blockedUsers = users.filter((user) => user.status === "blocked").length;
   const activeLicenses = licenses.filter((license) => license.status === "active").length;
-  const blockedLicenses = licenses.filter((license) => license.status === "blocked" || license.status === "expired").length;
+  const pendingRequests = requests.filter((request) => request.status === "pending");
   const openProblems = fleetData.problems.filter((problem) => ["aberta", "em_andamento"].includes(problem.status)).length;
   const vehiclesAttention = fleetData.vehicles.filter((vehicle) => ["manutencao", "pane_em_rota", "aguardando_auxilio"].includes(vehicle.status)).length;
 
-  const recentUsers = useMemo(() => users.slice(0, 5), [users]);
-  const recentLicenses = useMemo(() => licenses.slice(0, 5), [licenses]);
+  const sessionsByUser = useMemo(() => {
+    return users.map((user) => {
+      const userSessions = sessions.filter((session) => session.userId === user.id);
+      const online = userSessions.filter(isSessionOnline);
+      const last = [...userSessions].sort((a, b) => new Date(b.lastSeenAt || b.createdAt || 0).getTime() - new Date(a.lastSeenAt || a.createdAt || 0).getTime())[0];
+      return { user, sessions: userSessions, online, last };
+    }).sort((a, b) => b.online.length - a.online.length || new Date(b.last?.lastSeenAt || 0).getTime() - new Date(a.last?.lastSeenAt || 0).getTime());
+  }, [sessions, users]);
 
   if (authLoading) {
     return (
@@ -182,7 +215,7 @@ const AdminDashboard = () => {
     <AdminLayout>
       <div className="space-y-6 p-4 sm:p-6 lg:p-8">
         <section className="overflow-hidden rounded-2xl border border-white/10 bg-card/70 p-6 shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
             <div className="max-w-3xl">
               <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
                 <Radio className="h-3.5 w-3.5 animate-pulse" />
@@ -190,77 +223,65 @@ const AdminDashboard = () => {
               </div>
               <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Central de comando</h1>
               <p className="mt-3 text-muted-foreground">
-                Controle geral de acessos, solicitacoes, status operacional e sinais importantes do Firebase.
+                Controle de acessos, sessoes ativas, auditoria operacional e sinais criticos do sistema.
               </p>
             </div>
-            <div className="grid gap-2 text-sm text-muted-foreground sm:grid-cols-2 lg:min-w-80">
+            <div className="grid gap-2 text-sm text-muted-foreground sm:grid-cols-2 xl:min-w-96">
               <div className="rounded-xl border border-white/10 bg-background/40 p-3">
                 <div className="text-xs">Firestore</div>
                 <div className="mt-1 flex items-center gap-2 font-medium text-primary">
                   <span className="h-2 w-2 animate-pulse rounded-full bg-primary" />
-                  sincronizando em tempo real
+                  sincronizando
                 </div>
               </div>
               <div className="rounded-xl border border-white/10 bg-background/40 p-3">
-                <div className="text-xs">Modo</div>
-                <div className="mt-1 font-medium text-foreground">controle geral</div>
+                <div className="text-xs">Sessoes online</div>
+                <div className="mt-1 font-medium text-foreground">{onlineSessions.length} agora</div>
               </div>
             </div>
           </div>
         </section>
 
-        {isLoading || fleetLoading ? (
+        {fleetLoading ? (
           <div className="flex items-center justify-center py-16">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         ) : (
           <>
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              <MetricCard title="Solicitacoes pendentes" value={pendingRequests.length} detail="Aguardando sua liberacao" icon={Monitor} tone={pendingRequests.length > 0 ? "warning" : "success"} />
-              <MetricCard title="Gestores ativos" value={activeUsers} detail={`${blockedUsers} bloqueado(s)`} icon={UserCog} tone="primary" />
-              <MetricCard title="Acessos ativos" value={activeLicenses} detail={`${blockedLicenses} bloqueado(s)/expirado(s)`} icon={Key} tone="success" />
-              <MetricCard title="Frota em atencao" value={vehiclesAttention} detail={`${openProblems} ocorrencia(s) aberta(s)`} icon={AlertTriangle} tone={vehiclesAttention > 0 ? "destructive" : "success"} />
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+              <MetricCard title="Usuarios" value={activeUsers} detail={`${users.length} cadastrados`} icon={Users} />
+              <MetricCard title="Online agora" value={onlineSessions.length} detail={`${sessions.length} sessoes registradas`} icon={Wifi} tone="success" />
+              <MetricCard title="Acessos ativos" value={activeLicenses} detail={`${licenses.length} chaves totais`} icon={Key} tone="info" />
+              <MetricCard title="Solicitacoes" value={pendingRequests.length} detail="aguardando revisao" icon={Monitor} tone={pendingRequests.length ? "warning" : "success"} />
+              <MetricCard title="Frota em atencao" value={vehiclesAttention} detail={`${openProblems} ocorrencia(s) aberta(s)`} icon={AlertTriangle} tone={vehiclesAttention ? "destructive" : "success"} />
             </div>
 
-            <div className="grid gap-6 xl:grid-cols-[1.35fr_0.65fr]">
+            <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
               <Card className="border-white/10 bg-card/70">
                 <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <CardTitle className="flex items-center gap-2">
-                    <Monitor className="h-5 w-5 text-primary" />
-                    Solicitacoes de gestor
+                    <Activity className="h-5 w-5 text-primary" />
+                    Timeline operacional
                   </CardTitle>
                   <Button asChild variant="outline" size="sm">
-                    <Link to="/admin/manager-access">Ver todas</Link>
+                    <Link to="/admin/logs">Abrir logs</Link>
                   </Button>
                 </CardHeader>
                 <CardContent>
-                  {pendingRequests.length === 0 ? (
+                  {events.length === 0 ? (
                     <div className="rounded-xl border border-white/10 bg-background/30 p-8 text-center text-muted-foreground">
-                      Nenhuma solicitacao pendente agora.
+                      Nenhuma atividade operacional registrada ainda.
                     </div>
                   ) : (
-                    <div className="space-y-3">
-                      {pendingRequests.slice(0, 5).map((request) => (
-                        <div key={request.id} className="rounded-xl border border-white/10 bg-background/40 p-4 transition-colors hover:border-primary/25">
-                          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                            <div className="min-w-0">
-                              <div className="font-medium">{request.email || "Email nao informado"}</div>
-                              <div className="mt-1 font-mono text-sm text-primary">{request.answer || "Sem resposta"}</div>
-                              <div className="mt-2 text-xs text-muted-foreground">
-                                {request.createdAt ? formatDateTime(request.createdAt) : "Data pendente"}
-                              </div>
-                            </div>
-                            <div className="flex gap-2">
-                              <Button size="sm" variant="outline" disabled={savingRequestId === request.id} onClick={() => updateRequestStatus(request.id, "approved")}>
-                                <CheckCircle className="mr-2 h-4 w-4" />
-                                Aprovar
-                              </Button>
-                              <Button size="sm" variant="outline" disabled={savingRequestId === request.id} onClick={() => updateRequestStatus(request.id, "rejected")}>
-                                <XCircle className="mr-2 h-4 w-4" />
-                                Rejeitar
-                              </Button>
-                            </div>
+                    <div className="space-y-4">
+                      {events.slice(0, 12).map((event) => (
+                        <div key={event.id} className="flex gap-3 rounded-xl border border-white/10 bg-background/40 p-3 transition-colors hover:border-primary/25">
+                          <EventDot event={event} />
+                          <div className="min-w-0 flex-1">
+                            <div className="text-sm font-medium">{event.title}</div>
+                            {event.detail && <div className="mt-1 truncate text-xs text-muted-foreground">{event.detail}</div>}
                           </div>
+                          <div className="shrink-0 text-xs text-muted-foreground">{relativeActivity(event.createdAt)}</div>
                         </div>
                       ))}
                     </div>
@@ -271,8 +292,85 @@ const AdminDashboard = () => {
               <Card className="border-white/10 bg-card/70">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
+                    <Wifi className="h-5 w-5 text-primary" />
+                    Usuarios e sessoes
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {sessionsByUser.slice(0, 8).map(({ user, online, last, sessions: userSessions }) => (
+                    <div key={user.id} className="rounded-xl border border-white/10 bg-background/40 p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-medium">{user.name}</div>
+                          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                            <Badge variant="outline">{roleLabel(user.role)}</Badge>
+                            <span className={online.length ? "text-success" : ""}>{online.length ? "Online agora" : `Ultima atividade: ${relativeActivity(last?.lastSeenAt || user.lastLoginAt)}`}</span>
+                          </div>
+                          <div className="mt-2 text-xs text-muted-foreground">
+                            {last ? `${last.os || "Dispositivo"} - ${last.browser || "Navegador"}` : "Nenhuma sessao registrada"}
+                          </div>
+                        </div>
+                        <Badge className={online.length > 1 ? "bg-warning text-warning-foreground" : online.length ? "bg-success text-success-foreground" : "bg-muted text-muted-foreground"}>
+                          {online.length || userSessions.length} sessao{(online.length || userSessions.length) === 1 ? "" : "es"}
+                        </Badge>
+                      </div>
+                      {online.slice(0, 2).map((session) => (
+                        <div key={session.id} className="mt-3 flex items-center justify-between rounded-lg border border-white/10 bg-background/50 px-3 py-2 text-xs">
+                          <span>{session.os || "Dispositivo"} - {session.browser || "Navegador"}</span>
+                          <Button size="sm" variant="ghost" className="h-7 px-2 text-destructive" disabled={terminatingSessionId === session.id} onClick={() => handleTerminateSession(session.id)}>
+                            <Power className="mr-1 h-3.5 w-3.5" />
+                            Encerrar
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="grid gap-6 xl:grid-cols-[1.25fr_0.75fr]">
+              <Card className="border-white/10 bg-card/70">
+                <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    <Monitor className="h-5 w-5 text-primary" />
+                    Solicitacoes de acesso
+                  </CardTitle>
+                  <Button asChild variant="outline" size="sm">
+                    <Link to="/admin/manager-access">Ver todas</Link>
+                  </Button>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {pendingRequests.length === 0 ? (
+                    <div className="rounded-xl border border-white/10 bg-background/30 p-6 text-center text-sm text-muted-foreground">Nenhuma solicitacao pendente.</div>
+                  ) : pendingRequests.slice(0, 4).map((request) => (
+                    <div key={request.id} className="rounded-xl border border-white/10 bg-background/40 p-4">
+                      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                        <div className="min-w-0">
+                          <div className="font-medium">{request.email || "Email nao informado"}</div>
+                          <div className="mt-1 font-mono text-sm text-primary">{request.answer || "Sem resposta"}</div>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button size="sm" variant="outline" disabled={savingRequestId === request.id} onClick={() => updateRequestStatus(request.id, "approved")}>
+                            <CheckCircle className="mr-2 h-4 w-4" />
+                            Aprovar
+                          </Button>
+                          <Button size="sm" variant="outline" disabled={savingRequestId === request.id} onClick={() => updateRequestStatus(request.id, "rejected")}>
+                            <XCircle className="mr-2 h-4 w-4" />
+                            Rejeitar
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+
+              <Card className="border-white/10 bg-card/70">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
                     <Database className="h-5 w-5 text-primary" />
-                    Status operacional
+                    Operacao
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
@@ -291,94 +389,22 @@ const AdminDashboard = () => {
               </Card>
             </div>
 
-            <div className="grid gap-6 xl:grid-cols-3">
-              <Card className="border-white/10 bg-card/70">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <UserCog className="h-5 w-5 text-primary" />
-                    Usuarios recentes
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {recentUsers.length === 0 ? (
-                    <div className="text-sm text-muted-foreground">Nenhum gestor cadastrado.</div>
-                  ) : recentUsers.map((user) => (
-                    <div key={user.id} className="rounded-xl border border-white/10 bg-background/40 p-3">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="truncate text-sm font-medium">{user.name}</div>
-                          <div className="truncate text-xs text-muted-foreground">{user.email}</div>
-                        </div>
-                        <AdminStatusBadge status={user.status} />
-                      </div>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-
-              <Card className="border-white/10 bg-card/70">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Key className="h-5 w-5 text-primary" />
-                    Acessos recentes
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {recentLicenses.length === 0 ? (
-                    <div className="text-sm text-muted-foreground">Nenhuma chave registrada.</div>
-                  ) : recentLicenses.map((license) => (
-                    <div key={license.id} className="rounded-xl border border-white/10 bg-background/40 p-3">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="truncate font-mono text-xs">{license.displayCode || license.key}</div>
-                          <div className="text-xs text-muted-foreground">expira {license.expires_at ? formatDateTime(license.expires_at) : "sem data"}</div>
-                        </div>
-                        <AdminStatusBadge status={license.status} />
-                      </div>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-
-              <Card className="border-white/10 bg-card/70">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Activity className="h-5 w-5 text-primary" />
-                    Logs importantes
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {logs.length === 0 ? (
-                    <div className="text-sm text-muted-foreground">Nenhum log encontrado.</div>
-                  ) : logs.map((log) => (
-                    <div key={log.id} className="rounded-xl border border-white/10 bg-background/40 p-3">
-                      <div className="flex items-center gap-2 text-sm font-medium">
-                        <Clock className="h-3.5 w-3.5 text-primary" />
-                        {log.action || "acao"}
-                      </div>
-                      <div className="mt-1 text-xs text-muted-foreground">{formatDateTime(log.created_at)}</div>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-            </div>
-
             <Card className="border-white/10 bg-card/70">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Sparkles className="h-5 w-5 text-primary" />
-                  Configuracoes rapidas
+                  Acoes rapidas
                 </CardTitle>
               </CardHeader>
               <CardContent className="grid gap-3 md:grid-cols-3">
                 <Button asChild variant="outline" className="justify-start">
-                  <Link to="/admin/licenses"><Key className="mr-2 h-4 w-4" />Criar acesso gestor</Link>
+                  <Link to="/admin/licenses"><Key className="mr-2 h-4 w-4" />Gerenciar acessos</Link>
                 </Button>
                 <Button asChild variant="outline" className="justify-start">
                   <Link to="/admin/manager-access"><Monitor className="mr-2 h-4 w-4" />Revisar solicitacoes</Link>
                 </Button>
                 <Button asChild variant="outline" className="justify-start">
-                  <Link to="/admin/logs"><Activity className="mr-2 h-4 w-4" />Ver logs</Link>
+                  <Link to="/admin/logs"><Clock className="mr-2 h-4 w-4" />Auditoria completa</Link>
                 </Button>
               </CardContent>
             </Card>

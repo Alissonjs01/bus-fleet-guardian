@@ -196,8 +196,38 @@ service cloud.firestore {
     }
 
     match /accessLogs/{logId} {
-      allow read: if isManager() && sameCompany(resource.data.companyId);
+      allow read: if isAdmin() || (isManager() && sameCompany(resource.data.companyId));
       allow write: if false;
+    }
+
+    match /userSessions/{sessionId} {
+      allow read: if isAdmin() || (signedIn() && resource.data.userId == request.auth.uid);
+      allow create: if signedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if (
+        isAdmin() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'forceLogout', 'endedAt', 'updatedAt'])
+      ) || (
+        signedIn() &&
+        resource.data.userId == request.auth.uid &&
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'userId',
+          'userName',
+          'userEmail',
+          'role',
+          'companyId',
+          'deviceId',
+          'browser',
+          'os',
+          'userAgent',
+          'status',
+          'createdAt',
+          'lastSeenAt',
+          'endedAt',
+          'updatedAt'
+        ])
+      );
+      allow delete: if false;
     }
 
     match /syncQueue/{syncId} {

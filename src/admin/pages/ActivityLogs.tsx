@@ -1,195 +1,153 @@
-import { useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Search, RefreshCw, Loader2, ScrollText } from 'lucide-react';
-import { AdminLayout } from '@/admin/components/AdminLayout';
-import { useAdminAuth } from '@/admin/hooks/useAdminAuth';
-import { getActivityLogs } from '@/admin/services/adminService';
-import type { ActivityLog } from '@/types/license';
-import { formatDate } from '@/utils/dateFormat';
+import { useEffect, useMemo, useState } from "react";
+import { Activity, AlertTriangle, CheckCircle2, Loader2, Radio, Search, ShieldAlert, Wifi } from "lucide-react";
+import { AdminLayout } from "@/admin/components/AdminLayout";
+import { useAdminAuth } from "@/admin/hooks/useAdminAuth";
+import { subscribeOperationalEvents, type OperationalEvent } from "@/admin/services/adminService";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { formatDateTime } from "@/utils/dateFormat";
+
+const TYPE_LABELS: Record<OperationalEvent["type"] | "all", string> = {
+  all: "Todos",
+  route_start: "Rotas iniciadas",
+  route_end: "Rotas finalizadas",
+  issue: "Ocorrencias",
+  vehicle_release: "Liberacoes",
+  vehicle_maintenance: "Manutencao",
+  login: "Login",
+  session: "Sessoes",
+  access: "Acessos",
+};
+
+function eventIcon(type: OperationalEvent["type"]) {
+  if (type === "issue" || type === "vehicle_maintenance") return AlertTriangle;
+  if (type === "route_start" || type === "route_end") return Activity;
+  if (type === "login" || type === "session") return Wifi;
+  if (type === "access") return ShieldAlert;
+  return CheckCircle2;
+}
+
+function toneClass(tone: OperationalEvent["tone"]) {
+  return {
+    success: "border-success/30 bg-success/10 text-success",
+    warning: "border-warning/30 bg-warning/10 text-warning",
+    destructive: "border-destructive/30 bg-destructive/10 text-destructive",
+    info: "border-info/30 bg-info/10 text-info",
+    muted: "border-white/10 bg-muted/20 text-muted-foreground",
+  }[tone];
+}
 
 const ActivityLogs = () => {
   const { requireAuth, isLoading: authLoading, isAuthenticated } = useAdminAuth();
-  const [logs, setLogs] = useState<ActivityLog[]>([]);
-  const [filteredLogs, setFilteredLogs] = useState<ActivityLog[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [actionFilter, setActionFilter] = useState<string>('all');
+  const [events, setEvents] = useState<OperationalEvent[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [typeFilter, setTypeFilter] = useState<OperationalEvent["type"] | "all">("all");
 
   useEffect(() => {
     requireAuth();
   }, [requireAuth]);
 
-  const loadLogs = async () => {
-    setIsLoading(true);
-    const result = await getActivityLogs();
-    if (result.success && result.logs) {
-      setLogs(result.logs);
-    }
-    setIsLoading(false);
-  };
-
   useEffect(() => {
-    if (isAuthenticated) {
-      loadLogs();
-    }
+    if (!isAuthenticated) return undefined;
+    return subscribeOperationalEvents(setEvents);
   }, [isAuthenticated]);
 
-  useEffect(() => {
-    let filtered = [...logs];
-
-    // Filtro por ação
-    if (actionFilter !== 'all') {
-      filtered = filtered.filter(l => l.action === actionFilter);
-    }
-
-    // Filtro por termo de busca
-    if (searchTerm.trim()) {
-      const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(l => 
-        l.action.toLowerCase().includes(term) ||
-        l.ip_address?.toLowerCase().includes(term) ||
-        l.license_id?.toLowerCase().includes(term) ||
-        JSON.stringify(l.details).toLowerCase().includes(term)
-      );
-    }
-
-    setFilteredLogs(filtered);
-  }, [logs, actionFilter, searchTerm]);
-
-  const getActionBadge = (action: string) => {
-    const styles: Record<string, string> = {
-      activation: 'bg-success/20 text-success',
-      validation: 'bg-info/20 text-info',
-      blocked: 'bg-destructive/20 text-destructive',
-      reset: 'bg-warning/20 text-warning',
-      created: 'bg-primary/20 text-primary',
-      updated: 'bg-muted text-muted-foreground',
-    };
-    const labels: Record<string, string> = {
-      activation: 'Ativação',
-      validation: 'Validação',
-      blocked: 'Bloqueio',
-      reset: 'Reset',
-      created: 'Criação',
-      updated: 'Atualização',
-    };
-    
-    const style = styles[action] || styles.updated;
-    const label = labels[action] || action;
-    
-    return (
-      <span className={`px-2 py-1 rounded-full text-xs font-medium ${style}`}>
-        {label}
-      </span>
-    );
-  };
-
-  // Extrai ações únicas para o filtro
-  const uniqueActions = [...new Set(logs.map(l => l.action))];
+  const filteredEvents = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    return events
+      .filter((event) => typeFilter === "all" || event.type === typeFilter)
+      .filter((event) => !term || `${event.title} ${event.detail || ""}`.toLowerCase().includes(term));
+  }, [events, searchTerm, typeFilter]);
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center bg-[#07090d]">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
-  if (!isAuthenticated) {
-    return null;
-  }
+  if (!isAuthenticated) return null;
 
   return (
     <AdminLayout>
-      <div className="p-6 space-y-6">
-        {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Logs de Atividade</h1>
-          <p className="text-muted-foreground">Histórico de ações do sistema</p>
-        </div>
+      <div className="space-y-6 p-4 sm:p-6 lg:p-8">
+        <section className="rounded-2xl border border-white/10 bg-card/70 p-6 shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+                <Radio className="h-3.5 w-3.5 animate-pulse" />
+                Auditoria em tempo real
+              </div>
+              <h1 className="text-3xl font-bold tracking-tight">Logs operacionais</h1>
+              <p className="mt-2 text-muted-foreground">
+                Timeline limpa com rotas, ocorrencias, liberacoes, manutencao, login e sessoes.
+              </p>
+            </div>
+            <Badge className="w-fit bg-primary text-primary-foreground">{filteredEvents.length} evento(s)</Badge>
+          </div>
+        </section>
 
-        {/* Filters */}
-        <Card>
+        <Card className="border-white/10 bg-card/70">
           <CardContent className="p-4">
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <div className="grid gap-3 md:grid-cols-[1fr_240px]">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  placeholder="Buscar nos logs..."
+                  placeholder="Buscar na timeline..."
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                  className="border-white/10 bg-background/50 pl-10"
                 />
               </div>
-              <select
-                value={actionFilter}
-                onChange={(e) => setActionFilter(e.target.value)}
-                className="px-3 py-2 rounded-md border border-input bg-background text-foreground"
-              >
-                <option value="all">Todas as ações</option>
-                {uniqueActions.map(action => (
-                  <option key={action} value={action}>{action}</option>
-                ))}
-              </select>
-              <Button variant="outline" onClick={loadLogs}>
-                <RefreshCw className="h-4 w-4" />
-              </Button>
+              <Select value={typeFilter} onValueChange={(value: OperationalEvent["type"] | "all") => setTypeFilter(value)}>
+                <SelectTrigger className="border-white/10 bg-background/50">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(TYPE_LABELS).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>{label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </CardContent>
         </Card>
 
-        {/* Logs Table */}
-        <Card>
+        <Card className="border-white/10 bg-card/70">
           <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <ScrollText className="h-5 w-5" />
-              Registros ({filteredLogs.length})
+            <CardTitle className="flex items-center gap-2">
+              <Activity className="h-5 w-5 text-primary" />
+              Timeline
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-0">
-            {isLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              </div>
-            ) : filteredLogs.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
-                <ScrollText className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                <p>Nenhum log encontrado</p>
+          <CardContent>
+            {filteredEvents.length === 0 ? (
+              <div className="rounded-xl border border-white/10 bg-background/30 p-10 text-center text-muted-foreground">
+                Nenhum evento encontrado para os filtros atuais.
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-border bg-muted/50">
-                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Data/Hora</th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Ação</th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Licença</th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">IP</th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Detalhes</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredLogs.map((log) => (
-                      <tr key={log.id} className="border-b border-border/50 hover:bg-accent/50">
-                        <td className="py-3 px-4 text-sm">
-                          {formatDate(log.created_at)}
-                        </td>
-                        <td className="py-3 px-4">{getActionBadge(log.action)}</td>
-                        <td className="py-3 px-4 font-mono text-sm text-muted-foreground">
-                          {log.license_id?.substring(0, 8) || '-'}
-                        </td>
-                        <td className="py-3 px-4 text-sm text-muted-foreground">
-                          {log.ip_address || '-'}
-                        </td>
-                        <td className="py-3 px-4 text-sm text-muted-foreground max-w-xs truncate">
-                          {log.details ? JSON.stringify(log.details) : '-'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="relative space-y-3 before:absolute before:bottom-3 before:left-5 before:top-3 before:w-px before:bg-white/10">
+                {filteredEvents.map((event) => {
+                  const Icon = eventIcon(event.type);
+                  return (
+                    <div key={event.id} className="relative flex gap-4 rounded-xl border border-white/10 bg-background/40 p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/25">
+                      <div className={`z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${toneClass(event.tone)}`}>
+                        <Icon className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="font-medium">{event.title}</div>
+                          <div className="text-xs text-muted-foreground">{formatDateTime(event.createdAt)}</div>
+                        </div>
+                        {event.detail && <p className="mt-1 text-sm text-muted-foreground">{event.detail}</p>}
+                        <Badge variant="outline" className="mt-3">{TYPE_LABELS[event.type]}</Badge>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </CardContent>

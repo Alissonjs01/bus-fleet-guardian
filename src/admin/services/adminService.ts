@@ -1,4 +1,4 @@
-import { collection, doc, getDocs, onSnapshot, orderBy, query, updateDoc, where } from "firebase/firestore";
+import { collection, doc, getDocs, limit, onSnapshot, orderBy, query, serverTimestamp, updateDoc, where } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { db, functions } from "@/integrations/firebase/client";
 import { loginWithEmail, logout, currentUserId, getUserProfile } from "@/services/authService";
@@ -22,6 +22,33 @@ export interface LicenseStats {
   expired: number;
   blocked: number;
   pending: number;
+}
+
+export interface UserSession {
+  id: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  role: string;
+  companyId?: string;
+  deviceId?: string;
+  browser?: string;
+  os?: string;
+  userAgent?: string;
+  status: "online" | "offline" | "terminated";
+  forceLogout?: boolean;
+  createdAt?: string;
+  lastSeenAt?: string;
+  endedAt?: string;
+}
+
+export interface OperationalEvent {
+  id: string;
+  type: "route_start" | "route_end" | "issue" | "vehicle_release" | "vehicle_maintenance" | "login" | "session" | "access";
+  title: string;
+  detail?: string;
+  createdAt: string;
+  tone: "success" | "warning" | "destructive" | "info" | "muted";
 }
 
 function toIso(value: unknown): string {
@@ -66,6 +93,32 @@ function normalizeLog(id: string, data: Record<string, unknown>): ActivityLog {
     userAgent: data.userAgent ? String(data.userAgent) : null,
     created_at: toIso(data.createdAt),
   };
+}
+
+function normalizeSession(id: string, data: Record<string, unknown>): UserSession {
+  return {
+    id,
+    userId: String(data.userId || ""),
+    userName: String(data.userName || data.userEmail || "Usuario"),
+    userEmail: String(data.userEmail || ""),
+    role: String(data.role || ""),
+    companyId: data.companyId ? String(data.companyId) : undefined,
+    deviceId: data.deviceId ? String(data.deviceId) : undefined,
+    browser: data.browser ? String(data.browser) : undefined,
+    os: data.os ? String(data.os) : undefined,
+    userAgent: data.userAgent ? String(data.userAgent) : undefined,
+    status: data.status === "terminated" ? "terminated" : data.status === "offline" ? "offline" : "online",
+    forceLogout: Boolean(data.forceLogout),
+    createdAt: data.createdAt ? toIso(data.createdAt) : undefined,
+    lastSeenAt: data.lastSeenAt ? toIso(data.lastSeenAt) : undefined,
+    endedAt: data.endedAt ? toIso(data.endedAt) : undefined,
+  };
+}
+
+function eventTime(value: unknown) {
+  const iso = toIso(value);
+  const time = new Date(iso).getTime();
+  return Number.isFinite(time) ? time : 0;
 }
 
 export async function adminLogin(email: string, password: string): Promise<AdminLoginResponse> {
@@ -202,4 +255,146 @@ export async function getActivityLogs(licenseId?: string): Promise<{ success: bo
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Erro ao buscar logs" };
   }
+}
+
+export function subscribeUserSessions(callback: (sessions: UserSession[]) => void, onError?: (error: Error) => void) {
+  return onSnapshot(
+    query(collection(db, "userSessions"), orderBy("lastSeenAt", "desc"), limit(100)),
+    (snapshot) => callback(snapshot.docs.map((item) => normalizeSession(item.id, item.data()))),
+    onError,
+  );
+}
+
+export async function terminateUserSession(sessionId: string) {
+  await updateDoc(doc(db, "userSessions", sessionId), {
+    status: "terminated",
+    forceLogout: true,
+    endedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export function subscribeOperationalEvents(callback: (events: OperationalEvent[]) => void, onError?: (error: Error) => void) {
+  const buckets: Record<string, OperationalEvent[]> = {};
+  const emit = () => {
+    callback(Object.values(buckets).flat().sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 80));
+  };
+
+  const subscriptions = [
+    onSnapshot(query(collection(db, "routes"), orderBy("createdAt", "desc"), limit(40)), (snapshot) => {
+      buckets.routes = snapshot.docs.flatMap((item) => {
+        const data = item.data();
+        const startedAt = data.startedAt || data.createdAt;
+        const events: OperationalEvent[] = [{
+          id: `${item.id}-start`,
+          type: "route_start",
+          title: `Motorista ${data.driverId || ""} iniciou rota`,
+          detail: `Veiculo ${data.vehicleId || ""}`,
+          createdAt: toIso(startedAt),
+          tone: "success",
+        }];
+        if (data.finishedAt) {
+          events.push({
+            id: `${item.id}-end`,
+            type: "route_end",
+            title: `Motorista ${data.driverId || ""} finalizou rota`,
+            detail: `Veiculo ${data.vehicleId || ""}`,
+            createdAt: toIso(data.finishedAt),
+            tone: "info",
+          });
+        }
+        return events;
+      });
+      emit();
+    }, onError),
+    onSnapshot(query(collection(db, "issues"), orderBy("createdAt", "desc"), limit(40)), (snapshot) => {
+      buckets.issues = snapshot.docs.map((item) => {
+        const data = item.data();
+        return {
+          id: item.id,
+          type: "issue",
+          title: `${String(data.gravidade || "Ocorrencia")} reportada`,
+          detail: `Veiculo ${data.vehicleId || ""} - ${String(data.observacao || "").slice(0, 90)}`,
+          createdAt: toIso(data.createdAt),
+          tone: data.gravidade === "critica" ? "destructive" : "warning",
+        };
+      });
+      emit();
+    }, onError),
+    onSnapshot(query(collection(db, "vehicles"), orderBy("updatedAt", "desc"), limit(60)), (snapshot) => {
+      buckets.vehicles = snapshot.docs.flatMap((item) => {
+        const data = item.data();
+        const events: OperationalEvent[] = [];
+        if (data.releasedAt) {
+          events.push({
+            id: `${item.id}-release`,
+            type: "vehicle_release",
+            title: `Veiculo ${data.numeroRegistro || data.plate || ""} liberado`,
+            detail: `Para ${data.releasedToDriverName || data.releasedToDriverNumber || "motorista"} por ${data.releasedBy || "operacao"}`,
+            createdAt: toIso(data.releasedAt),
+            tone: "info",
+          });
+        }
+        if (data.status === "manutencao") {
+          events.push({
+            id: `${item.id}-maintenance`,
+            type: "vehicle_maintenance",
+            title: `Veiculo ${data.numeroRegistro || data.plate || ""} enviado para manutencao`,
+            detail: "Status operacional alterado",
+            createdAt: toIso(data.updatedAt),
+            tone: "warning",
+          });
+        }
+        return events;
+      });
+      emit();
+    }, onError),
+    onSnapshot(query(collection(db, "users"), orderBy("lastLoginAt", "desc"), limit(40)), (snapshot) => {
+      buckets.users = snapshot.docs
+        .filter((item) => Boolean(item.data().lastLoginAt))
+        .map((item) => {
+          const data = item.data();
+          return {
+            id: `${item.id}-login`,
+            type: "login",
+            title: `${data.name || data.email || "Usuario"} fez login`,
+            detail: `${data.role || "perfil"} - ${data.lastUserAgent ? String(data.lastUserAgent).slice(0, 80) : "dispositivo nao informado"}`,
+            createdAt: toIso(data.lastLoginAt),
+            tone: "success",
+          };
+        });
+      emit();
+    }, onError),
+    onSnapshot(query(collection(db, "userSessions"), orderBy("lastSeenAt", "desc"), limit(40)), (snapshot) => {
+      buckets.sessions = snapshot.docs.map((item) => {
+        const data = item.data();
+        const online = data.status !== "offline" && data.status !== "terminated" && Date.now() - eventTime(data.lastSeenAt) < 90000;
+        return {
+          id: `${item.id}-session`,
+          type: "session",
+          title: `${data.userName || data.userEmail || "Usuario"} ${online ? "online agora" : "ficou offline"}`,
+          detail: `${data.os || "Dispositivo"} - ${data.browser || "Navegador"}`,
+          createdAt: toIso(data.lastSeenAt || data.updatedAt || data.createdAt),
+          tone: online ? "success" : "muted",
+        };
+      });
+      emit();
+    }, onError),
+    onSnapshot(query(collection(db, "accessLogs"), orderBy("createdAt", "desc"), limit(40)), (snapshot) => {
+      buckets.access = snapshot.docs.map((item) => {
+        const log = normalizeLog(item.id, item.data());
+        return {
+          id: `access-${item.id}`,
+          type: "access",
+          title: log.action || "Acao administrativa",
+          detail: log.details ? JSON.stringify(log.details).slice(0, 110) : log.userAgent || undefined,
+          createdAt: log.created_at,
+          tone: log.action.includes("blocked") ? "destructive" : "info",
+        };
+      });
+      emit();
+    }, onError),
+  ];
+
+  return () => subscriptions.forEach((unsubscribe) => unsubscribe());
 }

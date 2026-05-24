@@ -1,5 +1,6 @@
 import { createContext, ReactNode, useContext, useEffect, useMemo, useState } from "react";
 import { subscribeAuthState } from "@/services/authService";
+import { startUserSession } from "@/services/sessionService";
 import type { AppUser, AuthState } from "@/types/auth";
 
 interface AuthContextValue extends AuthState {
@@ -20,6 +21,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
   }, []);
+
+  useEffect(() => {
+    if (!user) return undefined;
+    return startUserSession(user);
+  }, [user]);
 
   const value = useMemo(
     () => ({ firebaseUserId, user, loading, setUser }),

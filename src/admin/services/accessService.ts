@@ -36,11 +36,7 @@ export function subscribeAccessUsers(callback: (users: AppUser[]) => void, onErr
   return onSnapshot(
     query(collection(db, "users"), orderBy("createdAt", "desc")),
     (snapshot) => {
-      callback(
-        snapshot.docs
-          .map((item) => normalizeAccessUser(item.id, item.data()))
-          .filter((user) => user.role === "gestor" || user.role === "lider_garagem"),
-      );
+      callback(snapshot.docs.map((item) => normalizeAccessUser(item.id, item.data())));
     },
     onError,
   );

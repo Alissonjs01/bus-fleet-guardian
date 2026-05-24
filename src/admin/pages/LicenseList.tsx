@@ -125,6 +125,13 @@ const LicenseList = () => {
     return <Badge variant="secondary">Pendente</Badge>;
   };
 
+  const getRoleLabel = (role: AppUser["role"]) => {
+    if (role === "admin") return "Admin";
+    if (role === "lider_garagem") return "Lider de garagem";
+    if (role === "motorista") return "Motorista";
+    return "Gestor";
+  };
+
   if (authLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -139,8 +146,8 @@ const LicenseList = () => {
     <AdminLayout>
       <div className="p-6 space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Acessos</h1>
-          <p className="text-muted-foreground">Crie emails e senhas para gestores e lideres de garagem.</p>
+          <h1 className="text-2xl font-bold text-foreground">Acessos e permissoes</h1>
+          <p className="text-muted-foreground">Visualize usuarios, cargos e status. Crie emails e senhas para gestores e lideres de garagem.</p>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-3">
@@ -234,7 +241,7 @@ const LicenseList = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Shield className="h-5 w-5" />
-                  Gestores cadastrados ({filteredUsers.length})
+                  Usuarios cadastrados ({filteredUsers.length})
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -244,7 +251,7 @@ const LicenseList = () => {
                   </div>
                 ) : filteredUsers.length === 0 ? (
                   <div className="text-center py-10 text-muted-foreground">
-                    Nenhum acesso de gestor cadastrado
+                    Nenhum usuario cadastrado
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -255,7 +262,7 @@ const LicenseList = () => {
                             <div className="flex flex-wrap items-center gap-2">
                               <div className="font-medium">{user.name}</div>
                               {getStatusBadge(user.status)}
-                              <Badge variant="outline">{user.role === "lider_garagem" ? "Lider de garagem" : "Gestor"}</Badge>
+                              <Badge variant="outline">{getRoleLabel(user.role)}</Badge>
                             </div>
                             <div className="mt-1 text-sm text-muted-foreground">{user.email}</div>
                             <div className="mt-1 text-xs text-muted-foreground">
