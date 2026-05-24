@@ -29,6 +29,7 @@ export const Dashboard = () => {
       inOperation: data.vehicles.filter((vehicle) => vehicle.status === "operacao").length,
       released: data.vehicles.filter((vehicle) => vehicle.status === "liberado").length,
       inGarage: data.vehicles.filter((vehicle) => vehicle.status === "garagem").length,
+      outsideGarage: data.vehicles.filter((vehicle) => vehicle.status === "fora_garagem").length,
       inMaintenance: data.vehicles.filter((vehicle) => vehicle.status === "manutencao").length,
       inRouteIssue: data.vehicles.filter((vehicle) => vehicle.status === "pane_em_rota" || vehicle.status === "aguardando_auxilio").length,
       overdueRevisions: data.revisions.filter((revision) => isRevisionActive(revision.status) && new Date(revision.dataProxima) < today).length,
@@ -72,6 +73,7 @@ export const Dashboard = () => {
     switch (status) {
       case "operacao": return "Em Operacao";
       case "liberado": return "Liberado";
+      case "fora_garagem": return "Fora da Garagem";
       case "garagem": return "Na Garagem";
       case "manutencao": return "Em Manutencao";
       case "pane_em_rota": return "Pane em Rota";
@@ -301,6 +303,10 @@ export const Dashboard = () => {
             <div className="text-center p-4 bg-muted border rounded-lg">
               <div className="text-2xl font-bold">{stats.inGarage}</div>
               <div className="text-sm text-muted-foreground">Na Garagem</div>
+            </div>
+            <div className="text-center p-4 bg-muted/70 border rounded-lg">
+              <div className="text-2xl font-bold">{stats.outsideGarage}</div>
+              <div className="text-sm text-muted-foreground">Fora da Garagem</div>
             </div>
             <div className="text-center p-4 bg-info/10 border border-info/20 rounded-lg">
               <div className="text-2xl font-bold text-info">{stats.released}</div>

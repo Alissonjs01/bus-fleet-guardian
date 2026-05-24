@@ -99,6 +99,7 @@ class MobileAPIService {
       status: String(vehicle.status || "garagem"),
       releasedToDriverId: vehicle.releasedToDriverId === undefined || vehicle.releasedToDriverId === null ? null : Number(vehicle.releasedToDriverId),
       releasedToDriverNumber: vehicle.releasedToDriverNumber ? String(vehicle.releasedToDriverNumber) : null,
+      releasedFromStatus: vehicle.releasedFromStatus ? String(vehicle.releasedFromStatus) : null,
       currentKm: vehicle.currentKm === undefined || vehicle.currentKm === null ? undefined : Number(vehicle.currentKm),
       data: vehicle,
     };
@@ -239,7 +240,9 @@ class MobileAPIService {
       normalizeRegistration(vehicle.releasedToDriverNumber || "") === normalizeRegistration(driver.registrationNumber || driverNumber)
     );
 
-    if (vehicle.status !== "garagem" && !vehicleReleasedToThisDriver) {
+    const vehicleAvailableForDirectStart = vehicle.status === "garagem";
+
+    if (!vehicleAvailableForDirectStart && !vehicleReleasedToThisDriver) {
       return { success: false, message: "Veiculo indisponivel para iniciar rota." };
     }
 
@@ -267,6 +270,7 @@ class MobileAPIService {
       releasedAt: null,
       releasedBy: null,
       releaseNotes: null,
+      releasedFromStatus: null,
       updatedAt: serverTimestamp(),
     });
 
@@ -324,7 +328,7 @@ class MobileAPIService {
     };
   }
 
-  async registrarRetorno(vehicleNumber: string, driverNumber: string, problems: ProblemReport[], eventLocation?: LocationFields, endKm?: number): Promise<APIResponse> {
+  async registrarRetorno(vehicleNumber: string, driverNumber: string, problems: ProblemReport[], eventLocation?: LocationFields, endKm?: number, returnedToGarage = true): Promise<APIResponse> {
     const vehicle = await this.getVehicleByNumber(vehicleNumber);
     const driver = await getDriverByRegistration(driverNumber, MOBILE_COMPANY_ID);
 
@@ -402,9 +406,18 @@ class MobileAPIService {
         });
       });
 
+    const hasBlockingProblem = problems.length > 0 || hasOpenRouteIssue;
+
     batch.update(doc(db, "vehicles", vehicle.id), {
-      status: problems.length > 0 || hasOpenRouteIssue ? "manutencao" : "garagem",
+      status: hasBlockingProblem ? "manutencao" : returnedToGarage ? "garagem" : "fora_garagem",
       currentKm: normalizedEndKm,
+      releasedToDriverId: null,
+      releasedToDriverNumber: null,
+      releasedToDriverName: null,
+      releasedAt: null,
+      releasedBy: null,
+      releaseNotes: null,
+      releasedFromStatus: null,
       updatedAt: serverTimestamp(),
     });
 

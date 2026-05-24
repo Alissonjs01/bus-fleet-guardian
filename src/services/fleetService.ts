@@ -60,6 +60,7 @@ function normalizeVehicle(id: string, data: DocumentData): Vehicle {
     releasedAt: data.releasedAt ? toIso(data.releasedAt) : null,
     releasedBy: data.releasedBy || null,
     releaseNotes: data.releaseNotes || null,
+    releasedFromStatus: data.releasedFromStatus === "fora_garagem" ? "fora_garagem" : data.releasedFromStatus === "garagem" ? "garagem" : null,
     createdAt: toIso(data.createdAt),
     updatedAt: toIso(data.updatedAt),
   };
@@ -243,6 +244,7 @@ function serializeRecord(companyId: string, collectionName: FleetCollectionName,
       releasedAt: vehicle.releasedAt ?? null,
       releasedBy: vehicle.releasedBy ?? null,
       releaseNotes: vehicle.releaseNotes ?? null,
+      releasedFromStatus: vehicle.releasedFromStatus ?? null,
     });
   }
 
@@ -445,6 +447,7 @@ export async function upsertVehicle(companyId: string, vehicle: Vehicle) {
       releasedAt: vehicle.releasedAt ?? null,
       releasedBy: vehicle.releasedBy ?? null,
       releaseNotes: vehicle.releaseNotes ?? null,
+      releasedFromStatus: vehicle.releasedFromStatus ?? null,
       createdAt: vehicle.createdAt || new Date().toISOString(),
   }));
 
@@ -473,7 +476,9 @@ export async function releaseVehicleToDriver(
   releaseNotes?: string,
 ) {
   if (!vehicle.firestoreId) throw new Error("Veiculo sem identificador Firestore");
-  if (vehicle.status !== "garagem") throw new Error("Apenas veiculos na garagem podem ser liberados.");
+  if (!["garagem", "fora_garagem"].includes(vehicle.status)) {
+    throw new Error("Apenas veiculos disponiveis podem ser liberados.");
+  }
 
   await updateDoc(doc(db, "vehicles", vehicle.firestoreId), withoutUndefined({
     status: "liberado",
@@ -483,6 +488,7 @@ export async function releaseVehicleToDriver(
     releasedAt: new Date().toISOString(),
     releasedBy: releasedBy.name || releasedBy.email,
     releaseNotes: releaseNotes?.trim() || null,
+    releasedFromStatus: vehicle.status,
     companyId,
     updatedAt: serverTimestamp(),
   }));
@@ -493,13 +499,14 @@ export async function returnReleasedVehicleToGarage(companyId: string, vehicle: 
   if (vehicle.status !== "liberado") throw new Error("Apenas veiculos liberados podem voltar para garagem por aqui.");
 
   await updateDoc(doc(db, "vehicles", vehicle.firestoreId), {
-    status: "garagem",
+    status: vehicle.releasedFromStatus || "garagem",
     releasedToDriverId: null,
     releasedToDriverNumber: null,
     releasedToDriverName: null,
     releasedAt: null,
     releasedBy: null,
     releaseNotes: null,
+    releasedFromStatus: null,
     companyId,
     updatedAt: serverTimestamp(),
   });

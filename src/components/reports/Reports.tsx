@@ -31,6 +31,7 @@ const PERIOD_LABELS: Record<PeriodFilter, string> = {
 
 const VEHICLE_STATUS_LABELS: Record<Vehicle["status"], string> = {
   garagem: "Na garagem",
+  fora_garagem: "Fora da garagem",
   liberado: "Liberado",
   operacao: "Em operacao",
   manutencao: "Em manutencao",

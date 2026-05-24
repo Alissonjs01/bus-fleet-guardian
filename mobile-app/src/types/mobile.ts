@@ -57,7 +57,7 @@ export interface ProblemReport {
 
 export type OfflineAction =
   | { type: 'saida'; data: { vehicleNumber: string; driverNumber: string; startKm?: number; location?: GeoPointSnapshot | null; locationError?: GeoPointFailure | null }; timestamp: string }
-  | { type: 'retorno'; data: { vehicleNumber: string; driverNumber: string; problems: ProblemReport[]; endKm?: number; location?: GeoPointSnapshot | null; locationError?: GeoPointFailure | null }; timestamp: string }
+  | { type: 'retorno'; data: { vehicleNumber: string; driverNumber: string; problems: ProblemReport[]; endKm?: number; returnedToGarage?: boolean; location?: GeoPointSnapshot | null; locationError?: GeoPointFailure | null }; timestamp: string }
   | { type: 'problema'; data: ProblemReport; timestamp: string };
 
 export interface APIResponse<T = unknown> {

@@ -21,6 +21,7 @@ import type { Driver, Problem, Vehicle } from "@/types/fleet";
 function statusLabel(status: Vehicle["status"]) {
   switch (status) {
     case "garagem": return "Disponivel";
+    case "fora_garagem": return "Fora da garagem";
     case "liberado": return "Liberado";
     case "operacao": return "Em rota";
     case "manutencao": return "Em manutencao";
@@ -32,6 +33,7 @@ function statusLabel(status: Vehicle["status"]) {
 function statusClass(status: Vehicle["status"]) {
   switch (status) {
     case "garagem": return "bg-success text-success-foreground";
+    case "fora_garagem": return "bg-muted text-foreground";
     case "liberado": return "bg-info text-info-foreground";
     case "operacao": return "bg-primary text-primary-foreground";
     case "manutencao": return "bg-warning text-warning-foreground";
@@ -61,7 +63,9 @@ export function GarageOperations() {
   );
 
   const grouped = useMemo(() => ({
+    disponiveis: data.vehicles.filter((vehicle) => vehicle.status === "garagem" || vehicle.status === "fora_garagem").sort(vehicleSort),
     garagem: data.vehicles.filter((vehicle) => vehicle.status === "garagem").sort(vehicleSort),
+    foraGaragem: data.vehicles.filter((vehicle) => vehicle.status === "fora_garagem").sort(vehicleSort),
     liberado: data.vehicles.filter((vehicle) => vehicle.status === "liberado").sort(vehicleSort),
     rota: data.vehicles.filter((vehicle) => vehicle.status === "operacao").sort(vehicleSort),
     manutencao: data.vehicles.filter((vehicle) => ["manutencao", "pane_em_rota", "aguardando_auxilio"].includes(vehicle.status)).sort(vehicleSort),
@@ -103,7 +107,7 @@ export function GarageOperations() {
     setIsSaving(true);
     try {
       await returnReleasedVehicleToGarage(companyId, vehicle);
-      toast({ title: "Liberacao cancelada", description: `Veiculo ${vehicle.numeroRegistro} voltou para garagem.` });
+      toast({ title: "Liberacao cancelada", description: `Veiculo ${vehicle.numeroRegistro} voltou para ${vehicle.releasedFromStatus === "fora_garagem" ? "fora da garagem" : "garagem"}.` });
     } catch (error) {
       toast({
         title: "Erro ao retornar",
@@ -142,7 +146,7 @@ export function GarageOperations() {
   if (loading) return <div>Carregando garagem...</div>;
 
   const statCards = [
-    { label: "Disponiveis", value: grouped.garagem.length, icon: Car },
+    { label: "Disponiveis", value: grouped.disponiveis.length, icon: Car },
     { label: "Liberados", value: grouped.liberado.length, icon: KeyRound },
     { label: "Em rota", value: grouped.rota.length, icon: Route },
     { label: "Manutencao", value: grouped.manutencao.length, icon: Wrench },
@@ -176,14 +180,17 @@ export function GarageOperations() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><KeyRound className="h-5 w-5" /> Liberar chave</CardTitle>
-            <CardDescription>Veiculos na garagem podem ser reservados para um motorista antes da rota.</CardDescription>
+            <CardDescription>Veiculos na garagem ou em troca na rua podem ser reservados para um motorista.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            {grouped.garagem.map((vehicle) => (
+            {grouped.disponiveis.map((vehicle) => (
               <div key={vehicle.firestoreId || vehicle.id} className="flex items-center justify-between rounded-lg border p-3">
                 <div>
                   <div className="font-medium">Veiculo {vehicle.numeroRegistro}</div>
-                  <div className="text-sm text-muted-foreground">{vehicle.currentKm?.toLocaleString("pt-BR") || "--"} km</div>
+                  <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                    <span>{vehicle.currentKm?.toLocaleString("pt-BR") || "--"} km</span>
+                    <Badge variant="outline" className="text-xs">{statusLabel(vehicle.status)}</Badge>
+                  </div>
                 </div>
                 <Button size="sm" onClick={() => setReleaseVehicle(vehicle)}>
                   <KeyRound className="mr-2 h-4 w-4" />
@@ -191,7 +198,7 @@ export function GarageOperations() {
                 </Button>
               </div>
             ))}
-            {grouped.garagem.length === 0 && <div className="py-8 text-center text-sm text-muted-foreground">Nenhum veiculo disponivel.</div>}
+            {grouped.disponiveis.length === 0 && <div className="py-8 text-center text-sm text-muted-foreground">Nenhum veiculo disponivel.</div>}
           </CardContent>
         </Card>
 

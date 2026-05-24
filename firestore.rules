@@ -77,6 +77,7 @@ service cloud.firestore {
           'releasedAt',
           'releasedBy',
           'releaseNotes',
+          'releasedFromStatus',
           'companyId',
           'updatedAt'
         ])
@@ -87,13 +88,35 @@ service cloud.firestore {
       ) || (
         publicDemoCompany(resource.data.companyId) &&
         publicDemoCompany(request.resource.data.companyId) &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt'])
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status',
+          'currentKm',
+          'releasedToDriverId',
+          'releasedToDriverNumber',
+          'releasedToDriverName',
+          'releasedAt',
+          'releasedBy',
+          'releaseNotes',
+          'releasedFromStatus',
+          'updatedAt'
+        ])
       ) || (
         signedIn() &&
         userRole() == 'motorista' &&
         sameCompany(resource.data.companyId) &&
         sameCompany(request.resource.data.companyId) &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt'])
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status',
+          'currentKm',
+          'releasedToDriverId',
+          'releasedToDriverNumber',
+          'releasedToDriverName',
+          'releasedAt',
+          'releasedBy',
+          'releaseNotes',
+          'releasedFromStatus',
+          'updatedAt'
+        ])
       );
       allow delete: if isManager() && (sameCompany(resource.data.companyId) || publicDemoCompany(resource.data.companyId));
     }

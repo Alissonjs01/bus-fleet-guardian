@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { deleteVehicle, isProblemOpen, upsertVehicle } from "@/services/fleetService";
 import type { FleetData, Vehicle } from "@/types/fleet";
 import { normalizeRegistration } from "@/utils/localStorage";
-import { Activity, AlertTriangle, Car, Edit, History, Home, KeyRound, Plus, Trash2, Wrench } from "lucide-react";
+import { Activity, AlertTriangle, Car, Edit, History, Home, KeyRound, MapPin, Plus, Trash2, Wrench } from "lucide-react";
 
 const emptyForm = {
   numeroRegistro: "",
@@ -171,6 +171,7 @@ export const VehicleManagement = () => {
       case "manutencao": return <Wrench className="h-4 w-4 text-warning" />;
       case "pane_em_rota": return <AlertTriangle className="h-4 w-4 text-destructive" />;
       case "aguardando_auxilio": return <AlertTriangle className="h-4 w-4 text-warning" />;
+      case "fora_garagem": return <MapPin className="h-4 w-4 text-muted-foreground" />;
       case "garagem": return <Home className="h-4 w-4 text-muted-foreground" />;
     }
   };
@@ -182,6 +183,7 @@ export const VehicleManagement = () => {
       case "manutencao": return "bg-warning text-warning-foreground hover:bg-warning/80";
       case "pane_em_rota": return "bg-destructive text-destructive-foreground hover:bg-destructive/80";
       case "aguardando_auxilio": return "bg-warning text-warning-foreground hover:bg-warning/80";
+      case "fora_garagem": return "bg-muted text-foreground hover:bg-muted/80";
       case "garagem": return "";
     }
   };
@@ -193,6 +195,7 @@ export const VehicleManagement = () => {
       case "manutencao": return "Em Manutencao";
       case "pane_em_rota": return "Pane em Rota";
       case "aguardando_auxilio": return "Aguardando Auxilio";
+      case "fora_garagem": return "Fora da Garagem";
       case "garagem": return "Na Garagem";
     }
   };
@@ -282,6 +285,7 @@ export const VehicleManagement = () => {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="garagem">Na Garagem</SelectItem>
+            <SelectItem value="fora_garagem">Fora da Garagem</SelectItem>
             <SelectItem value="liberado">Liberado</SelectItem>
             <SelectItem value="operacao">Em Operacao</SelectItem>
             <SelectItem value="manutencao">Em Manutencao</SelectItem>

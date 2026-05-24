@@ -9,7 +9,7 @@ export interface Vehicle {
   numeroRegistro: string;
   tipo: VehicleType;
   vehicleType: VehicleType;
-  status: 'garagem' | 'liberado' | 'operacao' | 'manutencao' | 'pane_em_rota' | 'aguardando_auxilio';
+  status: 'garagem' | 'fora_garagem' | 'liberado' | 'operacao' | 'manutencao' | 'pane_em_rota' | 'aguardando_auxilio';
   currentKm?: number;
   releasedToDriverId?: number | null;
   releasedToDriverNumber?: string | null;
@@ -17,6 +17,7 @@ export interface Vehicle {
   releasedAt?: string | null;
   releasedBy?: string | null;
   releaseNotes?: string | null;
+  releasedFromStatus?: 'garagem' | 'fora_garagem' | null;
   createdAt: string;
   updatedAt?: string;
 }
@@ -137,6 +138,7 @@ export interface DashboardStats {
   inOperation: number;
   released: number;
   inGarage: number;
+  outsideGarage: number;
   inMaintenance: number;
   inRouteIssue: number;
   overdueRevisions: number;

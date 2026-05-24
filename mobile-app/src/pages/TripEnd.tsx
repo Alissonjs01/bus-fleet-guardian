@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, CheckCircle, AlertTriangle, Plus } from 'lucide-react';
+import { Loader2, CheckCircle, AlertTriangle, Plus, Home, MapPin } from 'lucide-react';
 import { MobileLayout } from '../components/MobileLayout';
 import { mobileStorage } from '../utils/storage';
 import { mobileAPI } from '../services/api';
@@ -22,6 +22,7 @@ interface TripEndProps {
 export const TripEnd = ({ onTripEnded, onReportProblem, onBack }: TripEndProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [endKm, setEndKm] = useState('');
+  const [returnedToGarage, setReturnedToGarage] = useState<'sim' | 'nao'>('sim');
   const [error, setError] = useState('');
   const [locationWarning, setLocationWarning] = useState('');
   
@@ -64,6 +65,7 @@ export const TripEnd = ({ onTripEnded, onReportProblem, onBack }: TripEndProps) 
           locationError: locationResult.error,
         },
         parsedEndKm,
+        returnedToGarage === 'sim',
       );
       
       if (response.success) {
@@ -88,6 +90,7 @@ export const TripEnd = ({ onTripEnded, onReportProblem, onBack }: TripEndProps) 
           driverNumber: driver.numeroRegistro,
           problems: pendingProblems,
           endKm: parsedEndKm,
+          returnedToGarage: returnedToGarage === 'sim',
           location: locationResult.location,
           locationError: locationResult.error,
         },
@@ -183,6 +186,44 @@ export const TripEnd = ({ onTripEnded, onReportProblem, onBack }: TripEndProps) 
                 KM rodados: {(Number(endKm) - currentTrip.startKm).toLocaleString("pt-BR")} km
               </p>
             )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Retorno do veiculo</CardTitle>
+            <CardDescription>
+              Informe se o veiculo voltou fisicamente para a garagem
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                type="button"
+                variant={returnedToGarage === 'sim' ? 'default' : 'outline'}
+                className="h-auto flex-col gap-2 py-4"
+                onClick={() => setReturnedToGarage('sim')}
+                disabled={isLoading}
+              >
+                <Home className="h-5 w-5" />
+                <span>Sim</span>
+              </Button>
+              <Button
+                type="button"
+                variant={returnedToGarage === 'nao' ? 'default' : 'outline'}
+                className="h-auto flex-col gap-2 py-4"
+                onClick={() => setReturnedToGarage('nao')}
+                disabled={isLoading}
+              >
+                <MapPin className="h-5 w-5" />
+                <span>Nao</span>
+              </Button>
+            </div>
+            <p className="mt-3 text-sm text-muted-foreground">
+              {returnedToGarage === 'sim'
+                ? 'O veiculo ficara como Na Garagem.'
+                : 'O veiculo ficara fora da garagem, mas livre para nova liberacao operacional.'}
+            </p>
           </CardContent>
         </Card>
 
