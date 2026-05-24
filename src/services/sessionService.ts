@@ -1,4 +1,4 @@
-import { doc, onSnapshot, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
+import { collection, doc, getDocs, onSnapshot, query, serverTimestamp, setDoc, updateDoc, where } from "firebase/firestore";
 import { db } from "@/integrations/firebase/client";
 import { getDeviceId, getUserAgent } from "@/services/deviceService";
 import { logout } from "@/services/authService";
@@ -40,6 +40,29 @@ function getDeviceInfo() {
   return { browser, os, userAgent };
 }
 
+async function terminateOtherOnlineSessions(userId: string, currentSessionId: string) {
+  const sessionsQuery = query(
+    collection(db, "userSessions"),
+    where("userId", "==", userId),
+    where("status", "==", "online"),
+  );
+
+  const snapshot = await getDocs(sessionsQuery);
+  const now = serverTimestamp();
+
+  await Promise.all(
+    snapshot.docs
+      .filter((session) => session.id !== currentSessionId)
+      .map((session) =>
+        updateDoc(session.ref, {
+          status: "terminated",
+          endedAt: now,
+          updatedAt: now,
+        }).catch(() => undefined),
+      ),
+  );
+}
+
 export function startUserSession(user: AppUser) {
   const sessionId = getSessionId(user.id);
   const sessionRef = doc(db, "userSessions", sessionId);
@@ -69,7 +92,10 @@ export function startUserSession(user: AppUser) {
     updatedAt: serverTimestamp(),
   };
 
-  const start = () => setDoc(sessionRef, initialPayload, { merge: true }).catch(() => undefined);
+  const start = () =>
+    setDoc(sessionRef, initialPayload, { merge: true })
+      .then(() => terminateOtherOnlineSessions(user.id, sessionId))
+      .catch(() => undefined);
   const touch = () => updateDoc(sessionRef, heartbeatPayload).catch(() => start());
 
   void start();
@@ -79,7 +105,7 @@ export function startUserSession(user: AppUser) {
 
   const unsubscribeForceLogout = onSnapshot(sessionRef, (snapshot) => {
     const data = snapshot.data();
-    if (!data?.forceLogout || stopped) return;
+    if ((!data?.forceLogout && data?.status !== "terminated") || stopped) return;
     stopped = true;
     window.clearInterval(heartbeat);
     void updateDoc(sessionRef, {
