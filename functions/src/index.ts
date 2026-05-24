@@ -8,6 +8,7 @@ const db = admin.firestore();
 
 type UserRole = "admin" | "gestor" | "lider_garagem" | "motorista";
 type LicenseStatus = "active" | "blocked" | "expired" | "pending";
+const ADMIN_EMAIL = "admin@sistemadefrota.com";
 
 function hashCode(code: string) {
   return createHash("sha256").update(code.trim().toUpperCase()).digest("hex");
@@ -21,14 +22,22 @@ function generateCode() {
     .join("-");
 }
 
-async function requireManager(uid?: string) {
+async function requireManager(uid?: string, email?: string | null) {
   if (!uid) throw new HttpsError("unauthenticated", "Autenticação obrigatória");
   const snapshot = await db.doc(`users/${uid}`).get();
   const role = snapshot.get("role");
   if (!["admin", "gestor"].includes(role)) {
     throw new HttpsError("permission-denied", "Permissão insuficiente");
   }
+  if (role === "admin" && String(email || "").toLowerCase() !== ADMIN_EMAIL) {
+    throw new HttpsError("permission-denied", "Admin exclusivo invalido");
+  }
   return snapshot.data()!;
+}
+
+function normalizeLicenseRole(value: unknown): Exclude<UserRole, "admin"> {
+  if (value === "gestor" || value === "lider_garagem" || value === "motorista") return value;
+  throw new HttpsError("invalid-argument", "Cargo de licenca invalido");
 }
 
 async function writeLog(data: Record<string, unknown>) {
@@ -95,13 +104,21 @@ export const bootstrapFirstAdmin = onCall(async (request) => {
 });
 
 export const createLicenseKey = onCall(async (request) => {
-  const manager = await requireManager(request.auth?.uid);
+  const manager = await requireManager(request.auth?.uid, request.auth?.token.email as string | undefined);
   const code = generateCode();
   const companyRef = db.collection("companies").doc();
   const licenseRef = db.collection("licenseKeys").doc();
   const companyName = String(request.data.companyName || "Empresa Demo");
-  const role = (request.data.role || "gestor") as UserRole;
+  const role = normalizeLicenseRole(request.data.role || "gestor");
   const maxDevices = Number(request.data.maxDevices || 1);
+
+  if ((role === "lider_garagem" || role === "motorista") && manager.role !== "admin") {
+    throw new HttpsError("permission-denied", "Apenas admin pode criar licencas para este cargo");
+  }
+
+  if (!Number.isInteger(maxDevices) || maxDevices < 1 || maxDevices > 10) {
+    throw new HttpsError("invalid-argument", "Limite de dispositivos invalido");
+  }
 
   await db.runTransaction(async (transaction) => {
     transaction.set(companyRef, {
@@ -251,7 +268,7 @@ export const activateLicenseKey = onCall(async (request) => {
 });
 
 export const updateLicenseStatus = onCall(async (request) => {
-  await requireManager(request.auth?.uid);
+  await requireManager(request.auth?.uid, request.auth?.token.email as string | undefined);
   const licenseId = String(request.data.licenseId || "");
   const status = request.data.status as LicenseStatus;
 
@@ -277,7 +294,7 @@ export const updateLicenseStatus = onCall(async (request) => {
 });
 
 export const resetLicenseActivations = onCall(async (request) => {
-  await requireManager(request.auth?.uid);
+  await requireManager(request.auth?.uid, request.auth?.token.email as string | undefined);
   const licenseId = String(request.data.licenseId || "");
   if (!licenseId) throw new HttpsError("invalid-argument", "Licença obrigatória");
 

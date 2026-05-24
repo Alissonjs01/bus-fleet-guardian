@@ -50,7 +50,7 @@ export const Sidebar = ({ activeView, onViewChange, isCollapsed, onToggleCollaps
   const handleLogout = async () => {
     await logoutFirebase();
     setUser(null);
-    navigate("/login?login=1", { replace: true });
+    navigate("/login", { replace: true });
   };
 
   return (

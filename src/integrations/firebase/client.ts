@@ -18,23 +18,23 @@ import {
 } from "firebase/firestore";
 import { getFunctions } from "firebase/functions";
 
-export const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyC257VfoujWKRjaem7TZPl_TcKQ0Zr3_7o",
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "gestao-frota-bus.firebaseapp.com",
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "gestao-frota-bus",
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "gestao-frota-bus.firebasestorage.app",
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "914757900925",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:914757900925:web:03f7943a284a6ec5b8ef14",
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "G-G8S4FXPRED",
-};
-
-const missingConfig = Object.entries(firebaseConfig)
-  .filter(([key, value]) => key !== "measurementId" && !value)
-  .map(([key]) => key);
-
-if (missingConfig.length > 0) {
-  console.warn(`Firebase config incompleta: ${missingConfig.join(", ")}`);
+function requiredEnv(name: string) {
+  const value = import.meta.env[name];
+  if (!value) {
+    throw new Error(`Variavel de ambiente obrigatoria ausente: ${name}`);
+  }
+  return value;
 }
+
+export const firebaseConfig = {
+  apiKey: requiredEnv("VITE_FIREBASE_API_KEY"),
+  authDomain: requiredEnv("VITE_FIREBASE_AUTH_DOMAIN"),
+  projectId: requiredEnv("VITE_FIREBASE_PROJECT_ID"),
+  storageBucket: requiredEnv("VITE_FIREBASE_STORAGE_BUCKET"),
+  messagingSenderId: requiredEnv("VITE_FIREBASE_MESSAGING_SENDER_ID"),
+  appId: requiredEnv("VITE_FIREBASE_APP_ID"),
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "",
+};
 
 export const firebaseApp = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
 

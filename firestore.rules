@@ -27,11 +27,11 @@ service cloud.firestore {
     }
 
     function isManager() {
-      return userRole() in ['admin', 'gestor'];
+      return isAdmin() || userRole() == 'gestor';
     }
 
     function isGarageLeader() {
-      return userRole() in ['admin', 'gestor', 'lider_garagem'];
+      return isAdmin() || userRole() in ['gestor', 'lider_garagem'];
     }
 
     function sameCompany(companyId) {
@@ -39,7 +39,7 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow read: if signedIn() && (request.auth.uid == userId || isGarageLeader());
+      allow read: if signedIn() && (request.auth.uid == userId || isManager());
       allow create, update, delete: if isAdmin();
     }
 

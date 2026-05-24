@@ -27,7 +27,19 @@ const Index = () => {
     data.drivers.map((driver) => `${driver.id}:${driver.status}`).join("|"),
   ].join("-");
 
+  const canAccessView = (view: string) => {
+    if (!user) return false;
+    if (user.role === "admin") return true;
+    if (user.role === "gestor") return view !== "backup";
+    if (user.role === "lider_garagem") return ["garage", "vehicles", "problems"].includes(view);
+    return false;
+  };
+
   const renderContent = () => {
+    if (!canAccessView(activeView)) {
+      return user?.role === "lider_garagem" ? <GarageOperations /> : <Dashboard />;
+    }
+
     switch (activeView) {
       case "dashboard":
         return <Dashboard />;
@@ -44,7 +56,6 @@ const Index = () => {
       case "reports":
         return <Reports />;
       case "backup":
-        if (user?.role !== "admin") return <Dashboard />;
         return <Backup />;
       default:
         return user?.role === "lider_garagem" ? <GarageOperations /> : <Dashboard />;

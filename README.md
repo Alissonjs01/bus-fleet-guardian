@@ -48,6 +48,7 @@ Netlify:
 Use `.env.example` como base para criar o `.env.local`.
 
 Nunca envie arquivos `.env` reais para o repositorio.
+As variaveis `VITE_FIREBASE_*` sao obrigatorias em build/deploy; o projeto nao possui fallback com chaves reais no codigo.
 
 ## Acessos
 

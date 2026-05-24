@@ -13,19 +13,29 @@ import {
   where,
 } from "firebase/firestore";
 
+function requiredEnv(name) {
+  const value = process.env[name];
+  if (!value) throw new Error(`Variavel de ambiente obrigatoria ausente: ${name}`);
+  return value;
+}
+
 const firebaseConfig = {
-  apiKey: process.env.VITE_FIREBASE_API_KEY || "AIzaSyC257VfoujWKRjaem7TZPl_TcKQ0Zr3_7o",
-  authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN || "gestao-frota-bus.firebaseapp.com",
-  projectId: process.env.VITE_FIREBASE_PROJECT_ID || "gestao-frota-bus",
-  storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET || "gestao-frota-bus.firebasestorage.app",
-  messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "914757900925",
-  appId: process.env.VITE_FIREBASE_APP_ID || "1:914757900925:web:03f7943a284a6ec5b8ef14",
+  apiKey: requiredEnv("VITE_FIREBASE_API_KEY"),
+  authDomain: requiredEnv("VITE_FIREBASE_AUTH_DOMAIN"),
+  projectId: requiredEnv("VITE_FIREBASE_PROJECT_ID"),
+  storageBucket: requiredEnv("VITE_FIREBASE_STORAGE_BUCKET"),
+  messagingSenderId: requiredEnv("VITE_FIREBASE_MESSAGING_SENDER_ID"),
+  appId: requiredEnv("VITE_FIREBASE_APP_ID"),
 };
 
 const apiKey = firebaseConfig.apiKey;
-const adminEmail = process.env.SEED_ADMIN_EMAIL || "admin@sistemadefrota.com";
-const adminPassword = process.env.SEED_ADMIN_PASSWORD || "Admin@123456";
+const adminEmail = requiredEnv("SEED_ADMIN_EMAIL");
+const adminPassword = requiredEnv("SEED_ADMIN_PASSWORD");
 const companyId = process.env.SEED_COMPANY_ID || "demo-company";
+const gestorEmail = requiredEnv("SEED_GESTOR_EMAIL");
+const gestorPassword = requiredEnv("SEED_GESTOR_PASSWORD");
+const motoristaEmail = requiredEnv("SEED_MOTORISTA_EMAIL");
+const motoristaPassword = requiredEnv("SEED_MOTORISTA_PASSWORD");
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -53,8 +63,8 @@ async function ensureAuthUser(email, password) {
   }
 }
 
-const gestorUid = await ensureAuthUser("gestor@sistemadefrota.com", "Gestor@123456");
-const motoristaUid = await ensureAuthUser("motorista@sistemadefrota.com", "Motorista@123456");
+const gestorUid = await ensureAuthUser(gestorEmail, gestorPassword);
+const motoristaUid = await ensureAuthUser(motoristaEmail, motoristaPassword);
 
 await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
 
@@ -66,7 +76,7 @@ await setDoc(doc(db, "companies", companyId), {
 
 await setDoc(doc(db, "users", gestorUid), {
   name: "Gestor Demo",
-  email: "gestor@sistemadefrota.com",
+  email: gestorEmail,
   role: "gestor",
   companyId,
   status: "active",
@@ -76,7 +86,7 @@ await setDoc(doc(db, "users", gestorUid), {
 
 await setDoc(doc(db, "users", motoristaUid), {
   name: "Motorista Demo",
-  email: "motorista@sistemadefrota.com",
+  email: motoristaEmail,
   role: "motorista",
   companyId,
   status: "active",
@@ -170,6 +180,6 @@ for (const revision of demoRevisions) {
 }
 
 console.log(`Demo seed complete. Created ${created} missing fleet records for ${companyId}.`);
-console.log("Gestor demo: gestor@sistemadefrota.com / Gestor@123456");
-console.log("Motorista demo: motorista@sistemadefrota.com / Motorista@123456");
+console.log(`Gestor demo: ${gestorEmail}`);
+console.log(`Motorista demo: ${motoristaEmail}`);
 process.exit(0);
