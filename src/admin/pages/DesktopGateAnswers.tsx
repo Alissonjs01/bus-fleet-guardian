@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { collection, doc, onSnapshot, orderBy, query, serverTimestamp, updateDoc } from "firebase/firestore";
-import { CheckCircle, KeyRound, Loader2, Monitor, XCircle } from "lucide-react";
+import { collection, deleteDoc, doc, onSnapshot, orderBy, query, serverTimestamp, updateDoc } from "firebase/firestore";
+import { CheckCircle, KeyRound, Loader2, Monitor, Trash2, XCircle } from "lucide-react";
 import { AdminLayout } from "@/admin/components/AdminLayout";
 import { useAdminAuth } from "@/admin/hooks/useAdminAuth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { db } from "@/integrations/firebase/client";
 import { formatDateTime } from "@/utils/dateFormat";
+import { useToast } from "@/hooks/use-toast";
 
 interface ManagerAccessRequest {
   id: string;
@@ -38,9 +39,12 @@ function toIso(value: unknown): string | undefined {
 
 export default function DesktopGateAnswers() {
   const { requireAuth, isLoading: authLoading, isAuthenticated } = useAdminAuth();
+  const { toast } = useToast();
   const [requests, setRequests] = useState<ManagerAccessRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isDeletingAll, setIsDeletingAll] = useState(false);
   const [loadError, setLoadError] = useState("");
 
   useEffect(() => {
@@ -91,6 +95,41 @@ export default function DesktopGateAnswers() {
     }
   };
 
+  const deleteRequest = async (requestId: string) => {
+    setDeletingId(requestId);
+    try {
+      await deleteDoc(doc(db, "managerAccessRequests", requestId));
+      toast({ title: "Solicitacao apagada", description: "Registro removido definitivamente do Firestore." });
+    } catch (error) {
+      toast({
+        title: "Erro ao apagar",
+        description: error instanceof Error ? error.message : "Nao foi possivel apagar esta solicitacao.",
+        variant: "destructive",
+      });
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const deleteAllRequests = async () => {
+    if (requests.length === 0 || isDeletingAll) return;
+    if (!confirm(`Apagar definitivamente ${requests.length} solicitacao(oes) antigas do gestor?`)) return;
+
+    setIsDeletingAll(true);
+    try {
+      await Promise.all(requests.map((request) => deleteDoc(doc(db, "managerAccessRequests", request.id))));
+      toast({ title: "Solicitacoes limpas", description: "Todos os registros antigos foram removidos do Firestore." });
+    } catch (error) {
+      toast({
+        title: "Erro ao limpar",
+        description: error instanceof Error ? error.message : "Nao foi possivel limpar todas as solicitacoes.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeletingAll(false);
+    }
+  };
+
   const getStatusBadge = (status: ManagerAccessRequest["status"]) => {
     if (status === "approved") return <Badge className="bg-success text-success-foreground">Aprovada</Badge>;
     if (status === "rejected") return <Badge variant="destructive">Rejeitada</Badge>;
@@ -110,9 +149,15 @@ export default function DesktopGateAnswers() {
   return (
     <AdminLayout>
       <div className="p-6 space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Solicitacoes de Acesso</h1>
-          <p className="text-muted-foreground">Pedidos temporarios enviados pela tela desktop/gestor</p>
+        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Solicitacoes de Acesso</h1>
+            <p className="text-muted-foreground">Historico antigo da tela de solicitacao do gestor, com limpeza definitiva do banco.</p>
+          </div>
+          <Button variant="destructive" onClick={deleteAllRequests} disabled={requests.length === 0 || isDeletingAll}>
+            {isDeletingAll ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+            Limpar tudo
+          </Button>
         </div>
 
         <Card>
@@ -187,6 +232,15 @@ export default function DesktopGateAnswers() {
                           >
                             <XCircle className="mr-2 h-4 w-4" />
                             Rejeitar
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => deleteRequest(request.id)}
+                            disabled={deletingId === request.id || isDeletingAll}
+                          >
+                            {deletingId === request.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                            Apagar
                           </Button>
                         </div>
                       </div>

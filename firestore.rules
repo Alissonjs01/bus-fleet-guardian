@@ -244,7 +244,8 @@ service cloud.firestore {
         request.resource.data.answerCm <= 20 &&
         request.resource.data.userAgent is string;
       allow read: if isAdmin();
-      allow update, delete: if false;
+      allow update: if false;
+      allow delete: if isAdmin();
     }
 
     match /managerAccessRequests/{requestId} {
@@ -260,7 +261,7 @@ service cloud.firestore {
       allow update: if isAdmin() &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'reviewedAt']) &&
         request.resource.data.status in ['pending', 'approved', 'rejected'];
-      allow delete: if false;
+      allow delete: if isAdmin();
     }
 
     match /{document=**} {

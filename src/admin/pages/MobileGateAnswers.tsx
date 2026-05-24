@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
-import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
-import { Footprints, Loader2, Smartphone } from "lucide-react";
+import { collection, deleteDoc, doc, onSnapshot, orderBy, query } from "firebase/firestore";
+import { Footprints, Loader2, Smartphone, Trash2 } from "lucide-react";
 import { AdminLayout } from "@/admin/components/AdminLayout";
 import { useAdminAuth } from "@/admin/hooks/useAdminAuth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { db } from "@/integrations/firebase/client";
 import { formatDateTime } from "@/utils/dateFormat";
+import { useToast } from "@/hooks/use-toast";
 
 interface MobileGateAnswer {
   id: string;
@@ -33,8 +35,10 @@ function toIso(value: unknown): string | undefined {
 
 export default function MobileGateAnswers() {
   const { requireAuth, isLoading: authLoading, isAuthenticated } = useAdminAuth();
+  const { toast } = useToast();
   const [answers, setAnswers] = useState<MobileGateAnswer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     requireAuth();
@@ -64,6 +68,41 @@ export default function MobileGateAnswers() {
     );
   }, [isAuthenticated]);
 
+  const deleteAnswer = async (answerId: string) => {
+    setIsDeleting(true);
+    try {
+      await deleteDoc(doc(db, "mobileGateAnswers", answerId));
+      toast({ title: "Resposta apagada", description: "Registro removido definitivamente do Firestore." });
+    } catch (error) {
+      toast({
+        title: "Erro ao apagar",
+        description: error instanceof Error ? error.message : "Nao foi possivel apagar esta resposta.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const deleteAllAnswers = async () => {
+    if (answers.length === 0 || isDeleting) return;
+    if (!confirm(`Apagar definitivamente ${answers.length} resposta(s) antigas do Mobile Gate?`)) return;
+
+    setIsDeleting(true);
+    try {
+      await Promise.all(answers.map((answer) => deleteDoc(doc(db, "mobileGateAnswers", answer.id))));
+      toast({ title: "Mobile Gate limpo", description: "Todas as respostas antigas foram removidas do Firestore." });
+    } catch (error) {
+      toast({
+        title: "Erro ao limpar",
+        description: error instanceof Error ? error.message : "Nao foi possivel limpar todas as respostas.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   if (authLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -77,9 +116,15 @@ export default function MobileGateAnswers() {
   return (
     <AdminLayout>
       <div className="p-6 space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Respostas Mobile</h1>
-          <p className="text-muted-foreground">Respostas da tela temporaria de entrada do mobile</p>
+        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Respostas Mobile</h1>
+            <p className="text-muted-foreground">Historico antigo do Mobile Gate, com limpeza definitiva do banco.</p>
+          </div>
+          <Button variant="destructive" onClick={deleteAllAnswers} disabled={answers.length === 0 || isDeleting}>
+            {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+            Limpar tudo
+          </Button>
         </div>
 
         <Card>
@@ -123,6 +168,16 @@ export default function MobileGateAnswers() {
                           <span>Idioma: {answer.deviceInfo?.language || "Nao informado"}</span>
                           <span className="truncate">User agent: {answer.userAgent || "Nao informado"}</span>
                         </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="mt-4"
+                          onClick={() => deleteAnswer(answer.id)}
+                          disabled={isDeleting}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Apagar
+                        </Button>
                       </div>
                     </div>
                   </div>
