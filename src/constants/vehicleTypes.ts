@@ -2,6 +2,7 @@ export const VEHICLE_TYPES = {
   VAN: "van",
   MICRO_ONIBUS: "micro_onibus",
   CONVENCIONAL: "convencional",
+  TREINAMENTO: "treinamento",
   ELETRICO: "eletrico",
 } as const;
 
@@ -16,12 +17,14 @@ export const VEHICLE_TYPE_OPTIONS: Array<{
   { value: VEHICLE_TYPES.VAN, label: "Van", pluralLabel: "Vans", icon: "🚐" },
   { value: VEHICLE_TYPES.MICRO_ONIBUS, label: "Micro-ônibus", pluralLabel: "Micro-ônibus", icon: "🚐" },
   { value: VEHICLE_TYPES.CONVENCIONAL, label: "Convencional", pluralLabel: "Convencionais", icon: "🚌" },
+  { value: VEHICLE_TYPES.TREINAMENTO, label: "Ônibus Treinamento", pluralLabel: "Ônibus Treinamento", icon: "🚌" },
   { value: VEHICLE_TYPES.ELETRICO, label: "Elétrico", pluralLabel: "Elétricos", icon: "⚡" },
 ];
 
 export function normalizeVehicleType(value: unknown): VehicleType {
   if (value === "articulado") return VEHICLE_TYPES.ELETRICO;
   if (value === "onibus") return VEHICLE_TYPES.CONVENCIONAL;
+  if (value === "onibus_treinamento" || value === "ônibus treinamento" || value === "treinamento") return VEHICLE_TYPES.TREINAMENTO;
   if (Object.values(VEHICLE_TYPES).includes(value as VehicleType)) return value as VehicleType;
   return VEHICLE_TYPES.CONVENCIONAL;
 }

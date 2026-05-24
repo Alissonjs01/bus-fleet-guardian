@@ -15,6 +15,7 @@ import {
   isProblemOpen,
   releaseVehicleToDriver,
   returnReleasedVehicleToGarage,
+  sendVehicleToMaintenance,
 } from "@/services/fleetService";
 import type { Driver, Problem, Vehicle } from "@/types/fleet";
 
@@ -136,6 +137,23 @@ export function GarageOperations() {
       toast({
         title: "Erro ao registrar observacao",
         description: error instanceof Error ? error.message : "Nao foi possivel atualizar a ocorrencia.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSendToMaintenance = async (vehicle?: Vehicle) => {
+    if (!vehicle || isSaving) return;
+    setIsSaving(true);
+    try {
+      await sendVehicleToMaintenance(companyId, vehicle);
+      toast({ title: "Veiculo enviado para manutencao", description: `Veiculo ${vehicle.numeroRegistro} retirado da operacao.` });
+    } catch (error) {
+      toast({
+        title: "Erro ao atualizar veiculo",
+        description: error instanceof Error ? error.message : "Nao foi possivel enviar o veiculo para manutencao.",
         variant: "destructive",
       });
     } finally {
@@ -285,10 +303,18 @@ export function GarageOperations() {
                       </div>
                     )}
                   </div>
-                  <Button size="sm" variant="outline" onClick={() => setNoteProblem(problem)}>
-                    <MessageSquarePlus className="mr-2 h-4 w-4" />
-                    Observacao
-                  </Button>
+                  <div className="flex flex-wrap gap-2">
+                    {vehicle && vehicle.status !== "manutencao" && (
+                      <Button size="sm" variant="outline" onClick={() => handleSendToMaintenance(vehicle)} disabled={isSaving}>
+                        <Wrench className="mr-2 h-4 w-4" />
+                        Manutencao
+                      </Button>
+                    )}
+                    <Button size="sm" variant="outline" onClick={() => setNoteProblem(problem)}>
+                      <MessageSquarePlus className="mr-2 h-4 w-4" />
+                      Observacao
+                    </Button>
+                  </div>
                 </div>
               </div>
             );

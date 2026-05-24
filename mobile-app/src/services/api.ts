@@ -382,16 +382,6 @@ class MobileAPIService {
       where("driverId", "==", driver.id),
     ));
 
-    const routeIssues = await getDocs(query(
-      collection(db, "issues"),
-      where("companyId", "==", MOBILE_COMPANY_ID),
-      where("vehicleId", "==", vehicleId),
-      where("driverId", "==", driver.id),
-    ));
-    const hasOpenRouteIssue = routeIssues.docs.some((issueDoc) =>
-      ["aberta", "em_andamento"].includes(String(issueDoc.data().status || "aberta")),
-    );
-
     driverTrips.docs
       .filter((tripDoc) => !tripDoc.data().retorno && !tripDoc.data().endTime)
       .forEach((tripDoc) => {
@@ -406,10 +396,8 @@ class MobileAPIService {
         });
       });
 
-    const hasBlockingProblem = problems.length > 0 || hasOpenRouteIssue;
-
     batch.update(doc(db, "vehicles", vehicle.id), {
-      status: hasBlockingProblem ? "manutencao" : returnedToGarage ? "garagem" : "fora_garagem",
+      status: returnedToGarage ? "garagem" : "fora_garagem",
       currentKm: normalizedEndKm,
       releasedToDriverId: null,
       releasedToDriverNumber: null,
@@ -479,10 +467,6 @@ class MobileAPIService {
     ));
     const activeRoute = activeRoutes.docs[0];
     const batch = writeBatch(db);
-    batch.update(doc(db, "vehicles", vehicle.id), {
-      status: activeRoute ? "pane_em_rota" : "manutencao",
-      updatedAt: serverTimestamp(),
-    });
     batch.set(doc(collection(db, "issues")), {
       companyId: MOBILE_COMPANY_ID,
       legacyId: Date.now(),

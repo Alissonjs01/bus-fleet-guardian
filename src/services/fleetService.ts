@@ -512,6 +512,23 @@ export async function returnReleasedVehicleToGarage(companyId: string, vehicle: 
   });
 }
 
+export async function sendVehicleToMaintenance(companyId: string, vehicle: Vehicle) {
+  if (!vehicle.firestoreId) throw new Error("Veiculo sem identificador Firestore");
+
+  await updateDoc(doc(db, "vehicles", vehicle.firestoreId), {
+    status: "manutencao",
+    releasedToDriverId: null,
+    releasedToDriverNumber: null,
+    releasedToDriverName: null,
+    releasedAt: null,
+    releasedBy: null,
+    releaseNotes: null,
+    releasedFromStatus: null,
+    companyId,
+    updatedAt: serverTimestamp(),
+  });
+}
+
 export async function upsertDriver(companyId: string, driver: Driver) {
   const payload = withoutUndefined(withCompany(companyId, {
     ...driver,
@@ -601,54 +618,15 @@ export async function updateProblem(companyId: string, problem: Problem) {
     createdAt: problem.createdAt || new Date().toISOString(),
   }));
 
-  const issuesSnapshot = await getDocs(query(
-    collection(db, "issues"),
-    where("companyId", "==", companyId),
-    where("vehicleId", "==", problem.vehicleId),
-  ));
-
-  const hasOpenIssue = issuesSnapshot.docs.some((issueDoc) => {
-    if (problem.firestoreId && issueDoc.id === problem.firestoreId) return isProblemOpen(status);
-    return isProblemOpen(issueDoc.data().status);
-  }) || (!problem.firestoreId && isProblemOpen(status));
-
-  const vehicleSnapshot = await getDocs(query(
-    collection(db, "vehicles"),
-    where("companyId", "==", companyId),
-    where("legacyId", "==", problem.vehicleId),
-  ));
-  const vehicleDoc = vehicleSnapshot.docs[0];
-
   if (problem.firestoreId) {
-    const batch = writeBatch(db);
-    batch.update(doc(db, "issues", problem.firestoreId), payload);
-
-    if (vehicleDoc) {
-      batch.update(doc(db, "vehicles", vehicleDoc.id), {
-        status: hasOpenIssue ? "manutencao" : "garagem",
-        updatedAt: serverTimestamp(),
-      });
-    }
-
-    await batch.commit();
+    await updateDoc(doc(db, "issues", problem.firestoreId), payload);
     return problem.firestoreId;
   }
 
-  const ref = doc(collection(db, "issues"));
-  const batch = writeBatch(db);
-  batch.set(ref, {
+  const ref = await addDoc(collection(db, "issues"), {
     ...payload,
     createdAt: serverTimestamp(),
   });
-
-  if (vehicleDoc) {
-    batch.update(doc(db, "vehicles", vehicleDoc.id), {
-      status: hasOpenIssue ? "manutencao" : "garagem",
-      updatedAt: serverTimestamp(),
-    });
-  }
-
-  await batch.commit();
   return ref.id;
 }
 
