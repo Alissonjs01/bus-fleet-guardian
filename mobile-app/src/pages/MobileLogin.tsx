@@ -9,6 +9,9 @@ import { mobileAPI } from '../services/api';
 import { mobileStorage } from '../utils/storage';
 import { MobileLayout } from '../components/MobileLayout';
 import type { MobileDriver } from '../types/mobile';
+import { useFleetData } from '@/hooks/useFleetData';
+import { getDeviceId } from '@/services/deviceService';
+import { Badge } from '@/components/ui/badge';
 
 interface MobileLoginProps {
   onLoginSuccess: () => void;
@@ -18,6 +21,10 @@ export const MobileLogin = ({ onLoginSuccess }: MobileLoginProps) => {
   const [numeroRegistro, setNumeroRegistro] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const { data } = useFleetData("demo-company");
+  const currentDeviceId = getDeviceId();
+  const vehicleDevice = data.vehicleDevices.find((device) => device.deviceId === currentDeviceId && device.status === "active");
+  const deviceVehicle = vehicleDevice ? data.vehicles.find((vehicle) => vehicle.id === vehicleDevice.vehicleId) : undefined;
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,6 +88,23 @@ export const MobileLogin = ({ onLoginSuccess }: MobileLoginProps) => {
           </CardHeader>
 
           <CardContent>
+            {vehicleDevice && (
+              <div className="mb-4 rounded-lg border border-info/30 bg-info/10 p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-medium text-info">Dispositivo do Veiculo</p>
+                    {vehicleDevice.deviceName && (
+                      <p className="text-sm font-semibold">{vehicleDevice.deviceName}</p>
+                    )}
+                    <p className="text-sm font-semibold">
+                      Veiculo {deviceVehicle?.numeroRegistro || vehicleDevice.vehicleLabel || vehicleDevice.vehicleId}
+                    </p>
+                  </div>
+                  <Badge className="bg-info text-info-foreground">Vinculado</Badge>
+                </div>
+              </div>
+            )}
+
             <form onSubmit={handleLogin} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="numeroRegistro">Número de Registro</Label>

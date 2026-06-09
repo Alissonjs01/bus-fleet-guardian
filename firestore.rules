@@ -195,6 +195,44 @@ service cloud.firestore {
       allow delete: if isManager() && (sameCompany(resource.data.companyId) || publicDemoCompany(resource.data.companyId));
     }
 
+    match /vehicleDevices/{deviceId} {
+      allow read: if sameCompany(resource.data.companyId) || publicDemoCompany(resource.data.companyId);
+      allow create: if (
+        isGarageLeader() &&
+        (sameCompany(request.resource.data.companyId) || publicDemoCompany(request.resource.data.companyId)) &&
+        request.resource.data.deviceId == deviceId
+      );
+      allow update: if (
+        isGarageLeader() &&
+        sameCompany(resource.data.companyId) &&
+        sameCompany(request.resource.data.companyId)
+      ) || (
+        isGarageLeader() &&
+        publicDemoCompany(resource.data.companyId) &&
+        publicDemoCompany(request.resource.data.companyId)
+      ) || (
+        publicDemoCompany(resource.data.companyId) &&
+        publicDemoCompany(request.resource.data.companyId) &&
+        request.resource.data.deviceId == resource.data.deviceId &&
+        request.resource.data.vehicleId == resource.data.vehicleId &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'deviceId',
+          'deviceName',
+          'vehicleId',
+          'vehicleLabel',
+          'companyId',
+          'status',
+          'lastSeenAt',
+          'userAgent',
+          'deviceInfo',
+          'lastLocation',
+          'lastLocationError',
+          'updatedAt'
+        ])
+      );
+      allow delete: if isManager() && (sameCompany(resource.data.companyId) || publicDemoCompany(resource.data.companyId));
+    }
+
     match /accessLogs/{logId} {
       allow read: if isAdmin() || (isManager() && sameCompany(resource.data.companyId));
       allow write: if false;

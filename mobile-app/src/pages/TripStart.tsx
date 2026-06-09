@@ -12,6 +12,7 @@ import { TripSession } from '../types/mobile';
 import { normalizeRegistration } from '@/utils/localStorage';
 import { captureCurrentLocation } from '@/utils/geolocation';
 import { useFleetData } from '@/hooks/useFleetData';
+import { getDeviceId } from '@/services/deviceService';
 
 interface TripStartProps {
   onTripStarted: () => void;
@@ -28,6 +29,9 @@ export const TripStart = ({ onTripStarted, onBack }: TripStartProps) => {
   const driver = mobileStorage.getCurrentDriver();
   const { data } = useFleetData(driver?.companyId || "demo-company");
   const vehicles = data.vehicles;
+  const currentDeviceId = getDeviceId();
+  const vehicleDevice = data.vehicleDevices.find((device) => device.deviceId === currentDeviceId && device.status === "active");
+  const deviceVehicle = vehicleDevice ? vehicles.find((vehicle) => vehicle.id === vehicleDevice.vehicleId) : undefined;
   const releasedVehicle = vehicles.find((vehicle) =>
     vehicle.status === 'liberado' &&
     (
@@ -35,13 +39,23 @@ export const TripStart = ({ onTripStarted, onBack }: TripStartProps) => {
       normalizeRegistration(vehicle.releasedToDriverNumber || '') === normalizeRegistration(driver?.numeroRegistro || '')
     )
   );
+  const streetAvailableVehicles = vehicles.filter((vehicle) => vehicle.status === 'fora_garagem');
+  const eligibleVehicles = vehicleDevice
+    ? deviceVehicle ? [deviceVehicle] : []
+    : releasedVehicle
+    ? [releasedVehicle]
+    : streetAvailableVehicles;
   const selectedVehicle = vehicles.find((vehicle) => normalizeRegistration(vehicle.numeroRegistro) === normalizeRegistration(vehicleNumber));
 
   useEffect(() => {
+    if (!vehicleNumber && deviceVehicle?.numeroRegistro) {
+      setVehicleNumber(deviceVehicle.numeroRegistro);
+      return;
+    }
     if (!vehicleNumber && releasedVehicle?.numeroRegistro) {
       setVehicleNumber(releasedVehicle.numeroRegistro);
     }
-  }, [releasedVehicle?.numeroRegistro, vehicleNumber]);
+  }, [deviceVehicle?.numeroRegistro, releasedVehicle?.numeroRegistro, vehicleNumber]);
 
   const handleStartTrip = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,6 +72,11 @@ export const TripStart = ({ onTripStarted, onBack }: TripStartProps) => {
       return;
     }
 
+    if (!selectedVehicle) {
+      setError('Veiculo nao encontrado na frota.');
+      return;
+    }
+
     const parsedStartKm = Number(startKm);
     if (!Number.isFinite(parsedStartKm) || parsedStartKm < 0) {
       setError('Informe a quilometragem atual do veiculo');
@@ -66,6 +85,26 @@ export const TripStart = ({ onTripStarted, onBack }: TripStartProps) => {
 
     if (selectedVehicle?.currentKm !== undefined && parsedStartKm < selectedVehicle.currentKm) {
       setError('Quilometragem menor que o ultimo registro do veiculo.');
+      return;
+    }
+
+    if (selectedVehicle?.status === 'garagem') {
+      setError('Veiculo na garagem precisa ser liberado pelo lider antes de iniciar operacao.');
+      return;
+    }
+
+    if (vehicleDevice && selectedVehicle.id !== vehicleDevice.vehicleId) {
+      setError(`Este dispositivo esta vinculado ao veiculo ${vehicleDevice.vehicleLabel || vehicleDevice.vehicleId}.`);
+      return;
+    }
+
+    if (selectedVehicle?.status === 'liberado' && !releasedVehicle) {
+      setError('Veiculo liberado para outro motorista.');
+      return;
+    }
+
+    if (selectedVehicle.status !== 'fora_garagem' && selectedVehicle.status !== 'liberado') {
+      setError('Veiculo indisponivel para iniciar operacao.');
       return;
     }
 
@@ -105,7 +144,7 @@ export const TripStart = ({ onTripStarted, onBack }: TripStartProps) => {
         mobileStorage.setCurrentTrip(tripSession);
         onTripStarted();
       } else {
-        setError(response.message || 'Erro ao registrar saida');
+        setError(response.message || 'Erro ao iniciar operacao');
       }
     } catch (error) {
       setError('Erro de conexao. Dados salvos localmente.');
@@ -146,7 +185,7 @@ export const TripStart = ({ onTripStarted, onBack }: TripStartProps) => {
 
   return (
     <MobileLayout
-      title="Iniciar Viagem"
+      title="Iniciar Operacao"
       showBackButton
       onBack={onBack}
     >
@@ -156,9 +195,9 @@ export const TripStart = ({ onTripStarted, onBack }: TripStartProps) => {
             <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-4">
               <MapPin className="h-6 w-6 text-primary" />
             </div>
-            <CardTitle>Registrar Saida</CardTitle>
+            <CardTitle>Iniciar Operacao</CardTitle>
             <CardDescription>
-              Digite o numero do veiculo para iniciar a viagem
+              Use um veiculo liberado para voce ou disponivel na rua
             </CardDescription>
           </CardHeader>
 
@@ -173,11 +212,11 @@ export const TripStart = ({ onTripStarted, onBack }: TripStartProps) => {
                   placeholder="Ex: 05"
                   value={vehicleNumber}
                   onChange={(e) => setVehicleNumber(e.target.value)}
-                  disabled={isLoading || !!releasedVehicle}
+                  disabled={isLoading || !!releasedVehicle || !!vehicleDevice}
                   className="text-center text-lg font-medium"
                 />
                 <datalist id="vehicle-options">
-                  {vehicles.map((vehicle) => (
+                  {eligibleVehicles.map((vehicle) => (
                     <option
                       key={vehicle.firestoreId || vehicle.id}
                       value={vehicle.numeroRegistro}
@@ -194,6 +233,21 @@ export const TripStart = ({ onTripStarted, onBack }: TripStartProps) => {
                 {releasedVehicle && (
                   <p className="text-xs text-info">
                     Veiculo liberado pela garagem para este motorista.
+                  </p>
+                )}
+                {vehicleDevice && (
+                  <p className="text-xs text-info">
+                    Dispositivo vinculado ao veiculo {vehicleDevice.vehicleLabel || deviceVehicle?.numeroRegistro || vehicleDevice.vehicleId}.
+                  </p>
+                )}
+                {!vehicleDevice && !releasedVehicle && streetAvailableVehicles.length > 0 && (
+                  <p className="text-xs text-info">
+                    Veiculos disponiveis na rua podem ser assumidos por qualquer motorista ativo.
+                  </p>
+                )}
+                {!vehicleDevice && !releasedVehicle && streetAvailableVehicles.length === 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Nao ha veiculo liberado para voce nem veiculo disponivel na rua.
                   </p>
                 )}
               </div>
@@ -240,7 +294,7 @@ export const TripStart = ({ onTripStarted, onBack }: TripStartProps) => {
                   ) : (
                     <>
                       <Bus className="mr-2 h-4 w-4" />
-                      Iniciar Viagem
+                      Iniciar Operacao
                     </>
                   )}
                 </Button>

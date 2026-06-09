@@ -87,7 +87,7 @@ export const ProblemReport = ({ onProblemReported, onBack }: ProblemReportProps)
         setObservacao('');
         onProblemReported();
       } else {
-        setError(response.message || 'Erro ao reportar problema');
+        setError(response.message || 'Erro ao registrar relatorio');
       }
     } catch (error) {
       const locationResult = await captureCurrentLocation();
@@ -130,7 +130,7 @@ export const ProblemReport = ({ onProblemReported, onBack }: ProblemReportProps)
 
   return (
     <MobileLayout 
-      title="Reportar Problema" 
+      title="Criar Relatorio" 
       showBackButton 
       onBack={onBack}
     >
@@ -150,10 +150,10 @@ export const ProblemReport = ({ onProblemReported, onBack }: ProblemReportProps)
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-warning" />
-              Detalhes do Problema
+              Detalhes do Relatorio
             </CardTitle>
             <CardDescription>
-              Preencha as informações sobre o problema encontrado
+              Registre problemas, observacoes operacionais, acidentes ou ocorrencias diversas
             </CardDescription>
           </CardHeader>
 
@@ -211,10 +211,10 @@ export const ProblemReport = ({ onProblemReported, onBack }: ProblemReportProps)
 
               {/* Observação */}
               <div className="space-y-2">
-                <Label htmlFor="observacao">Descrição do Problema *</Label>
+                <Label htmlFor="observacao">Descricao do Relatorio *</Label>
                 <Textarea
                   id="observacao"
-                  placeholder="Descreva detalhadamente o problema encontrado..."
+                  placeholder="Descreva detalhadamente a ocorrencia operacional..."
                   value={observacao}
                   onChange={(e) => setObservacao(e.target.value)}
                   rows={4}
@@ -269,7 +269,7 @@ export const ProblemReport = ({ onProblemReported, onBack }: ProblemReportProps)
                       Enviando...
                     </>
                   ) : (
-                    'Reportar Problema'
+                    'Enviar Relatorio'
                   )}
                 </Button>
 
@@ -294,7 +294,7 @@ export const ProblemReport = ({ onProblemReported, onBack }: ProblemReportProps)
               <p className="font-medium">💡 Dicas:</p>
               <p>• Seja específico na descrição</p>
               <p>• Use gravidade "Crítica" para problemas de segurança</p>
-              <p>• Problemas serão enviados ao supervisor imediatamente</p>
+              <p>• Relatorios serao enviados ao supervisor imediatamente</p>
             </div>
           </CardContent>
         </Card>

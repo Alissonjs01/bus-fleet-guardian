@@ -71,11 +71,11 @@ export const Dashboard = () => {
 
   const getVehicleStatusLabel = (status: string) => {
     switch (status) {
-      case "operacao": return "Em Operacao";
+      case "operacao": return "Em Rota";
       case "liberado": return "Liberado";
-      case "fora_garagem": return "Fora da Garagem";
-      case "garagem": return "Na Garagem";
-      case "manutencao": return "Em Manutencao";
+      case "fora_garagem": return "Disponivel na Rua";
+      case "garagem": return "Garagem";
+      case "manutencao": return "Manutencao";
       case "pane_em_rota": return "Pane em Rota";
       case "aguardando_auxilio": return "Aguardando Auxilio";
       default: return "Status nao informado";
@@ -115,7 +115,7 @@ export const Dashboard = () => {
           description="Frota total cadastrada"
         />
         <StatsCard
-          title="Em Operacao"
+          title="Em Rota"
           value={stats.inOperation}
           icon={Activity}
           variant="success"
@@ -294,7 +294,7 @@ export const Dashboard = () => {
           <div className="grid gap-4 md:grid-cols-4">
             <div className="text-center p-4 bg-success/10 border border-success/20 rounded-lg">
               <div className="text-2xl font-bold text-success">{stats.inOperation}</div>
-              <div className="text-sm text-muted-foreground">Em Operacao</div>
+              <div className="text-sm text-muted-foreground">Em Rota</div>
             </div>
             <div className="text-center p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
               <div className="text-2xl font-bold text-destructive">{stats.inRouteIssue}</div>
@@ -302,11 +302,11 @@ export const Dashboard = () => {
             </div>
             <div className="text-center p-4 bg-muted border rounded-lg">
               <div className="text-2xl font-bold">{stats.inGarage}</div>
-              <div className="text-sm text-muted-foreground">Na Garagem</div>
+              <div className="text-sm text-muted-foreground">Garagem</div>
             </div>
             <div className="text-center p-4 bg-muted/70 border rounded-lg">
               <div className="text-2xl font-bold">{stats.outsideGarage}</div>
-              <div className="text-sm text-muted-foreground">Fora da Garagem</div>
+              <div className="text-sm text-muted-foreground">Disponivel na Rua</div>
             </div>
             <div className="text-center p-4 bg-info/10 border border-info/20 rounded-lg">
               <div className="text-2xl font-bold text-info">{stats.released}</div>
@@ -314,7 +314,7 @@ export const Dashboard = () => {
             </div>
             <div className="text-center p-4 bg-warning/10 border border-warning/20 rounded-lg">
               <div className="text-2xl font-bold text-warning">{stats.inMaintenance}</div>
-              <div className="text-sm text-muted-foreground">Em Manutencao</div>
+              <div className="text-sm text-muted-foreground">Manutencao</div>
             </div>
           </div>
         </CardContent>

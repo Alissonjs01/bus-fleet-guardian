@@ -16,6 +16,7 @@ import { mobileStorage } from '../utils/storage';
 import { mobileAPI } from '../services/api';
 import { useFleetData } from '@/hooks/useFleetData';
 import { normalizeRegistration } from '@/utils/localStorage';
+import { getDeviceId } from '@/services/deviceService';
 
 interface MobileDashboardProps {
   onStartTrip: () => void;
@@ -38,6 +39,9 @@ export const MobileDashboard = ({
   const [isOnline] = useState(() => navigator.onLine);
   const [lastSync, setLastSync] = useState<Date | null>(null);
   const { data } = useFleetData(driver?.companyId || 'demo-company');
+  const currentDeviceId = getDeviceId();
+  const vehicleDevice = data.vehicleDevices.find((device) => device.deviceId === currentDeviceId && device.status === "active");
+  const deviceVehicle = vehicleDevice ? data.vehicles.find((vehicle) => vehicle.id === vehicleDevice.vehicleId) : undefined;
   const releasedVehicle = data.vehicles.find((vehicle) =>
     vehicle.status === 'liberado' &&
     (
@@ -45,6 +49,18 @@ export const MobileDashboard = ({
       normalizeRegistration(vehicle.releasedToDriverNumber || '') === normalizeRegistration(driver?.numeroRegistro || '')
     )
   );
+  const streetAvailableVehicles = data.vehicles.filter((vehicle) => vehicle.status === 'fora_garagem');
+  const canStartDeviceOperation = !!deviceVehicle && (
+    deviceVehicle.status === "fora_garagem" ||
+    (
+      deviceVehicle.status === "liberado" &&
+      (
+        (driver?.driverId !== undefined && deviceVehicle.releasedToDriverId === driver.driverId) ||
+        normalizeRegistration(deviceVehicle.releasedToDriverNumber || '') === normalizeRegistration(driver?.numeroRegistro || '')
+      )
+    )
+  );
+  const canStartOperation = vehicleDevice ? canStartDeviceOperation : !!releasedVehicle || streetAvailableVehicles.length > 0;
 
   const handleSync = async () => {
     try {
@@ -80,12 +96,34 @@ export const MobileDashboard = ({
           </CardHeader>
         </Card>
 
+        {vehicleDevice && (
+          <Card className="border-info/30 bg-info/10">
+            <CardContent className="pt-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium text-info">Dispositivo do Veiculo</p>
+                  {vehicleDevice.deviceName && (
+                    <p className="mt-1 text-sm font-semibold">{vehicleDevice.deviceName}</p>
+                  )}
+                  <p className="mt-1 text-xl font-semibold">
+                    Veiculo {deviceVehicle?.numeroRegistro || vehicleDevice.vehicleLabel || vehicleDevice.vehicleId}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Este aparelho opera a rota deste veiculo.
+                  </p>
+                </div>
+                <Badge className="bg-info text-info-foreground">Vinculado</Badge>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Trip Status */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Clock className="h-5 w-5" />
-              Status da Viagem
+              Status da Operacao
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -93,7 +131,7 @@ export const MobileDashboard = ({
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-medium">Viagem em andamento</p>
+                    <p className="font-medium">Operacao em andamento</p>
                     <p className="text-sm text-muted-foreground">
                       Veículo: {currentTrip.vehicleNumber}
                     </p>
@@ -113,7 +151,7 @@ export const MobileDashboard = ({
                   variant="outline"
                 >
                   <AlertTriangle className="mr-2 h-5 w-5" />
-                  Reportar Pane
+                  Criar Relatorio
                 </Button>
 
                 <Button 
@@ -123,7 +161,7 @@ export const MobileDashboard = ({
                   variant="destructive"
                 >
                   <StopCircle className="mr-2 h-5 w-5" />
-                  Finalizar Viagem
+                  Encerrar Operacao
                 </Button>
               </div>
             ) : (
@@ -147,9 +185,24 @@ export const MobileDashboard = ({
                       <Badge className="bg-info text-info-foreground">Pronto</Badge>
                     </div>
                   </div>
+                ) : !vehicleDevice && streetAvailableVehicles.length > 0 ? (
+                  <div className="rounded-lg border border-success/30 bg-success/10 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="flex items-center gap-2 font-medium text-success">
+                          <KeyRound className="h-4 w-4" />
+                          Disponivel na Rua
+                        </div>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          {streetAvailableVehicles.length} veiculo(s) podem ser assumidos por motorista ativo
+                        </p>
+                      </div>
+                      <Badge className="bg-success text-success-foreground">Rua</Badge>
+                    </div>
+                  </div>
                 ) : (
                   <div className="text-center">
-                    <p className="text-muted-foreground">Nenhuma viagem ativa</p>
+                    <p className="text-muted-foreground">Nenhuma operacao ativa ou veiculo disponivel</p>
                   </div>
                 )}
                 
@@ -157,9 +210,10 @@ export const MobileDashboard = ({
                   onClick={onStartTrip} 
                   className="w-full" 
                   size="lg"
+                  disabled={!canStartOperation}
                 >
                   <PlayCircle className="mr-2 h-5 w-5" />
-                  Iniciar Viagem
+                  Iniciar Operacao
                 </Button>
               </div>
             )}
@@ -172,12 +226,12 @@ export const MobileDashboard = ({
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-warning">
                 <AlertTriangle className="h-5 w-5" />
-                Problemas Pendentes
+                Relatorios Pendentes
               </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-warning">
-                {pendingProblems.length} problema(s) aguardando sincronização
+                {pendingProblems.length} relatorio(s) aguardando sincronizacao
               </p>
             </CardContent>
           </Card>

@@ -190,13 +190,13 @@ export const VehicleManagement = () => {
 
   const getStatusLabel = (status: Vehicle["status"]) => {
     switch (status) {
-      case "operacao": return "Em Operacao";
+      case "operacao": return "Em Rota";
       case "liberado": return "Liberado";
-      case "manutencao": return "Em Manutencao";
+      case "manutencao": return "Manutencao";
       case "pane_em_rota": return "Pane em Rota";
       case "aguardando_auxilio": return "Aguardando Auxilio";
-      case "fora_garagem": return "Fora da Garagem";
-      case "garagem": return "Na Garagem";
+      case "fora_garagem": return "Disponivel na Rua";
+      case "garagem": return "Garagem";
     }
   };
 
@@ -284,13 +284,11 @@ export const VehicleManagement = () => {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="garagem">Na Garagem</SelectItem>
-            <SelectItem value="fora_garagem">Fora da Garagem</SelectItem>
+            <SelectItem value="garagem">Garagem</SelectItem>
+            <SelectItem value="fora_garagem">Disponivel na Rua</SelectItem>
             <SelectItem value="liberado">Liberado</SelectItem>
-            <SelectItem value="operacao">Em Operacao</SelectItem>
-            <SelectItem value="manutencao">Em Manutencao</SelectItem>
-            <SelectItem value="pane_em_rota">Pane em Rota</SelectItem>
-            <SelectItem value="aguardando_auxilio">Aguardando Auxilio</SelectItem>
+            <SelectItem value="operacao">Em Rota</SelectItem>
+            <SelectItem value="manutencao">Manutencao</SelectItem>
           </SelectContent>
         </Select>
       </div>

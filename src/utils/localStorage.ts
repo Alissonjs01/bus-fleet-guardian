@@ -53,6 +53,7 @@ const normalizeFleetData = (data: FleetData): FleetData => ({
   })),
   trips: data.trips || [],
   routes: data.routes || [],
+  vehicleDevices: data.vehicleDevices || [],
 });
 
 export const getFleetData = (): FleetData => {
@@ -200,7 +201,8 @@ export const getInitialFleetData = (): FleetData => ({
     }
   ],
   trips: [],
-  routes: []
+  routes: [],
+  vehicleDevices: [],
 });
 
 const getInitialData = getInitialFleetData;

@@ -10,6 +10,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  Smartphone,
   Warehouse,
   X,
 } from "lucide-react";
@@ -27,6 +28,7 @@ interface SidebarProps {
 const menuItems = [
   { id: 'dashboard', label: 'Painel', icon: LayoutDashboard },
   { id: 'garage', label: 'Garagem', icon: Warehouse },
+  { id: 'vehicle-devices', label: 'Dispositivos', icon: Smartphone },
   { id: 'vehicles', label: 'Veículos', icon: Car },
   { id: 'drivers', label: 'Motoristas', icon: Users },
   { id: 'revisions', label: 'Revisões', icon: ClipboardCheck },
@@ -38,7 +40,7 @@ const menuItems = [
 const menuByRole = {
   admin: menuItems,
   gestor: menuItems.filter((item) => item.id !== "backup"),
-  lider_garagem: menuItems.filter((item) => ["garage", "vehicles", "problems"].includes(item.id)),
+  lider_garagem: menuItems.filter((item) => ["garage", "vehicle-devices", "vehicles", "problems"].includes(item.id)),
   motorista: [],
 };
 

@@ -19,11 +19,11 @@ import { db } from "@/integrations/firebase/client";
 import { normalizeDriverStatus } from "@/constants/driverStatus";
 import { normalizeVehicleType } from "@/constants/vehicleTypes";
 import type { AppUser } from "@/types/auth";
-import type { Driver, FleetData, OperationalNote, Problem, Revision, Route, Trip, Vehicle } from "@/types/fleet";
+import type { Driver, FleetData, OperationalNote, Problem, Revision, Route, Trip, Vehicle, VehicleDevice } from "@/types/fleet";
 import { getInitialFleetData, saveFleetCache } from "@/utils/localStorage";
 import { normalizeRegistration } from "@/utils/localStorage";
 
-type FleetCollectionName = "vehicles" | "drivers" | "issues" | "maintenance" | "trips" | "routes";
+type FleetCollectionName = "vehicles" | "drivers" | "issues" | "maintenance" | "trips" | "routes" | "vehicleDevices";
 
 const COLLECTIONS: Record<keyof FleetData, FleetCollectionName> = {
   vehicles: "vehicles",
@@ -32,6 +32,7 @@ const COLLECTIONS: Record<keyof FleetData, FleetCollectionName> = {
   revisions: "maintenance",
   trips: "trips",
   routes: "routes",
+  vehicleDevices: "vehicleDevices",
 };
 
 function toIso(value: unknown): string {
@@ -197,6 +198,25 @@ function normalizeRoute(id: string, data: DocumentData): Route {
   };
 }
 
+function normalizeVehicleDevice(id: string, data: DocumentData): VehicleDevice {
+  return {
+    id,
+    deviceId: String(data.deviceId || id),
+    deviceName: data.deviceName || "",
+    vehicleId: Number(data.vehicleId || 0),
+    vehicleLabel: String(data.vehicleLabel || ""),
+    companyId: String(data.companyId || ""),
+    status: data.status === "inactive" || data.status === "blocked" ? data.status : "active",
+    createdAt: toIso(data.createdAt),
+    updatedAt: data.updatedAt ? toIso(data.updatedAt) : undefined,
+    lastSeenAt: data.lastSeenAt ? toIso(data.lastSeenAt) : undefined,
+    userAgent: data.userAgent || "",
+    deviceInfo: data.deviceInfo || "",
+    lastLocation: data.lastLocation || null,
+    lastLocationError: data.lastLocationError || null,
+  };
+}
+
 function withCompany<T extends Record<string, unknown>>(companyId: string, data: T) {
   return {
     ...data,
@@ -209,7 +229,7 @@ function withoutUndefined<T extends Record<string, unknown>>(data: T) {
   return Object.fromEntries(Object.entries(data).filter(([, value]) => value !== undefined));
 }
 
-type FleetRecord = Vehicle | Driver | Problem | Revision | Trip | Route;
+type FleetRecord = Vehicle | Driver | Problem | Revision | Trip | Route | VehicleDevice;
 
 function recordKey(record: FleetRecord) {
   return record.firestoreId || String(record.id);
@@ -296,6 +316,23 @@ function serializeRecord(companyId: string, collectionName: FleetCollectionName,
     });
   }
 
+  if (collectionName === "vehicleDevices") {
+    const vehicleDevice = record as VehicleDevice;
+    return withoutUndefined({
+      ...base,
+      deviceId: vehicleDevice.deviceId,
+      deviceName: vehicleDevice.deviceName || "",
+      vehicleId: vehicleDevice.vehicleId,
+      vehicleLabel: vehicleDevice.vehicleLabel,
+      status: vehicleDevice.status,
+      lastSeenAt: vehicleDevice.lastSeenAt || null,
+      userAgent: vehicleDevice.userAgent || "",
+      deviceInfo: vehicleDevice.deviceInfo || "",
+      lastLocation: vehicleDevice.lastLocation || null,
+      lastLocationError: vehicleDevice.lastLocationError || null,
+    });
+  }
+
   const trip = record as Trip;
   return withoutUndefined({ ...base, startTime: trip.saida, endTime: trip.retorno || null });
 }
@@ -312,6 +349,7 @@ export function subscribeFleetData(
     revisions: [],
     trips: [],
     routes: [],
+    vehicleDevices: [],
   };
   const pending: Record<keyof FleetData, boolean> = {
     vehicles: false,
@@ -320,6 +358,7 @@ export function subscribeFleetData(
     revisions: false,
     trips: false,
     routes: false,
+    vehicleDevices: false,
   };
 
   const emit = () => {
@@ -347,6 +386,7 @@ export function subscribeFleetData(
         if (key === "revisions") data.revisions = docs.map((item) => normalizeRevision(item.id, item.data()));
         if (key === "trips") data.trips = docs.map((item) => normalizeTrip(item.id, item.data()));
         if (key === "routes") data.routes = docs.map((item) => normalizeRoute(item.id, item.data()));
+        if (key === "vehicleDevices") data.vehicleDevices = docs.map((item) => normalizeVehicleDevice(item.id, item.data()));
 
         emit();
       },
@@ -525,6 +565,41 @@ export async function sendVehicleToMaintenance(companyId: string, vehicle: Vehic
     releaseNotes: null,
     releasedFromStatus: null,
     companyId,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function upsertVehicleDevice(
+  companyId: string,
+  device: Pick<VehicleDevice, "deviceId" | "vehicleId" | "vehicleLabel" | "status"> & Partial<VehicleDevice>,
+) {
+  const deviceId = device.deviceId.trim();
+  if (!deviceId) throw new Error("Identificacao do dispositivo obrigatoria.");
+
+  await setDoc(
+    doc(db, "vehicleDevices", deviceId),
+    withoutUndefined({
+      deviceId,
+      deviceName: device.deviceName || "",
+      vehicleId: device.vehicleId,
+      vehicleLabel: device.vehicleLabel,
+      companyId,
+      status: device.status || "active",
+      userAgent: device.userAgent || "",
+      deviceInfo: device.deviceInfo || "",
+      lastSeenAt: device.lastSeenAt || null,
+      lastLocation: device.lastLocation || null,
+      lastLocationError: device.lastLocationError || null,
+      createdAt: device.createdAt || serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    }),
+    { merge: true },
+  );
+}
+
+export async function updateVehicleDeviceStatus(device: VehicleDevice, status: VehicleDevice["status"]) {
+  await updateDoc(doc(db, "vehicleDevices", device.deviceId), {
+    status,
     updatedAt: serverTimestamp(),
   });
 }
@@ -721,6 +796,7 @@ export async function replaceCompanyFleetData(companyId: string, fleetData: Flee
     ["maintenance", fleetData.revisions],
     ["trips", fleetData.trips],
     ["routes", fleetData.routes],
+    ["vehicleDevices", fleetData.vehicleDevices || []],
   ];
 
   targets.forEach(([collectionName, records]) => {
@@ -747,6 +823,7 @@ export async function syncCompanyFleetChanges(companyId: string, previousData: F
     ["revisions", "maintenance", previousData.revisions, nextData.revisions],
     ["trips", "trips", previousData.trips, nextData.trips],
     ["routes", "routes", previousData.routes || [], nextData.routes || []],
+    ["vehicleDevices", "vehicleDevices", previousData.vehicleDevices || [], nextData.vehicleDevices || []],
   ];
 
   targets.forEach(([, collectionName, previousRecords, nextRecords]) => {

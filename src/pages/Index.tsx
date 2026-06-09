@@ -8,6 +8,7 @@ import { Revisions } from "@/components/revisions/Revisions";
 import { Reports } from "@/components/reports/Reports";
 import { Backup } from "@/components/backup/Backup";
 import { GarageOperations } from "@/components/garage/GarageOperations";
+import { VehicleDevices } from "@/components/devices/VehicleDevices";
 import { useFleetData } from "@/hooks/useFleetData";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -23,6 +24,7 @@ const Index = () => {
     data.revisions.length,
     data.trips.length,
     data.routes.length,
+    data.vehicleDevices.length,
     data.vehicles.map((vehicle) => `${vehicle.id}:${vehicle.status}`).join("|"),
     data.drivers.map((driver) => `${driver.id}:${driver.status}`).join("|"),
   ].join("-");
@@ -31,7 +33,7 @@ const Index = () => {
     if (!user) return false;
     if (user.role === "admin") return true;
     if (user.role === "gestor") return view !== "backup";
-    if (user.role === "lider_garagem") return ["garage", "vehicles", "problems"].includes(view);
+    if (user.role === "lider_garagem") return ["garage", "vehicle-devices", "vehicles", "problems"].includes(view);
     return false;
   };
 
@@ -45,6 +47,8 @@ const Index = () => {
         return <Dashboard />;
       case "garage":
         return <GarageOperations />;
+      case "vehicle-devices":
+        return <VehicleDevices />;
       case "vehicles":
         return <VehicleManagement />;
       case "drivers":

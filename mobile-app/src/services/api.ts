@@ -1,10 +1,12 @@
-import { collection, doc, getDocs, query, serverTimestamp, where, writeBatch } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, query, serverTimestamp, setDoc, where, writeBatch } from "firebase/firestore";
 import { db } from "@/integrations/firebase/client";
 import { getFleetData, normalizeRegistration, saveFleetData } from "@/utils/localStorage";
 import { ActiveRouteSession, ProblemReport, APIResponse, TripHistory } from "../types/mobile";
 import { DRIVER_STATUSES, type DriverStatus } from "@/constants/driverStatus";
 import { getDriverByRegistration } from "@/services/driverService";
 import { captureCurrentLocation, type GeoPointFailure, type GeoPointSnapshot } from "@/utils/geolocation";
+import { getDeviceId, getUserAgent } from "@/services/deviceService";
+import type { VehicleDevice } from "@/types/fleet";
 
 type FleetSnapshot = ReturnType<typeof getFleetData>;
 const MOBILE_COMPANY_ID = "demo-company";
@@ -55,6 +57,55 @@ async function resolveLocation(eventLocation?: LocationFields) {
 }
 
 class MobileAPIService {
+  async getCurrentVehicleDevice(): Promise<VehicleDevice | null> {
+    const deviceId = getDeviceId();
+    const snapshot = await getDoc(doc(db, "vehicleDevices", deviceId));
+    if (!snapshot.exists()) return null;
+
+    const data = snapshot.data();
+    const device: VehicleDevice = {
+      id: snapshot.id,
+      deviceId: String(data.deviceId || snapshot.id),
+      deviceName: data.deviceName || "",
+      vehicleId: Number(data.vehicleId || 0),
+      vehicleLabel: String(data.vehicleLabel || ""),
+      companyId: String(data.companyId || MOBILE_COMPANY_ID),
+      status: data.status === "inactive" || data.status === "blocked" ? data.status : "active",
+      createdAt: data.createdAt?.toDate?.().toISOString?.() || new Date().toISOString(),
+      updatedAt: data.updatedAt?.toDate?.().toISOString?.(),
+      lastSeenAt: data.lastSeenAt?.toDate?.().toISOString?.(),
+      userAgent: data.userAgent || "",
+      deviceInfo: data.deviceInfo || "",
+      lastLocation: data.lastLocation || null,
+      lastLocationError: data.lastLocationError || null,
+    };
+
+    await this.touchVehicleDevice(device).catch(() => undefined);
+    return device;
+  }
+
+  private async touchVehicleDevice(device: VehicleDevice | null, location?: GeoPointSnapshot | null, locationError?: GeoPointFailure | null) {
+    if (!device) return;
+    await setDoc(
+      doc(db, "vehicleDevices", device.deviceId),
+      {
+        deviceId: device.deviceId,
+        deviceName: device.deviceName || "",
+        vehicleId: device.vehicleId,
+        vehicleLabel: device.vehicleLabel,
+        companyId: device.companyId || MOBILE_COMPANY_ID,
+        status: device.status,
+        userAgent: getUserAgent(),
+        deviceInfo: getUserAgent(),
+        lastSeenAt: serverTimestamp(),
+        lastLocation: location || device.lastLocation || null,
+        lastLocationError: locationError || null,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    );
+  }
+
   private findDriver(data: FleetSnapshot, driverNumber: string) {
     const normalizedDriverNumber = normalizeRegistration(driverNumber);
     return data.drivers.find((item) =>
@@ -212,6 +263,7 @@ class MobileAPIService {
     startLocationError: GeoPointFailure | null;
     startKm?: number;
   }>> {
+    const vehicleDevice = await this.getCurrentVehicleDevice();
     const driver = await getDriverByRegistration(driverNumber, MOBILE_COMPANY_ID);
     const vehicle = await this.getVehicleByNumber(vehicleNumber);
 
@@ -221,6 +273,18 @@ class MobileAPIService {
 
     if (!driver) {
       return { success: false, message: "Seu cadastro de motorista ainda nao foi liberado pelo gestor." };
+    }
+
+    if (vehicleDevice?.status === "blocked") {
+      return { success: false, message: "Dispositivo do veiculo bloqueado. Procure o gestor." };
+    }
+
+    if (vehicleDevice?.status === "inactive") {
+      return { success: false, message: "Dispositivo do veiculo inativo. Procure o gestor." };
+    }
+
+    if (vehicleDevice?.status === "active" && vehicleDevice.vehicleId !== vehicle.legacyId) {
+      return { success: false, message: `Este dispositivo esta vinculado ao veiculo ${vehicleDevice.vehicleLabel || vehicleDevice.vehicleId}.` };
     }
 
     if (driver.status === DRIVER_STATUSES.BLOCKED) {
@@ -240,9 +304,17 @@ class MobileAPIService {
       normalizeRegistration(vehicle.releasedToDriverNumber || "") === normalizeRegistration(driver.registrationNumber || driverNumber)
     );
 
-    const vehicleAvailableForDirectStart = vehicle.status === "garagem";
+    const vehicleAvailableForStreetHandoff = vehicle.status === "fora_garagem";
 
-    if (!vehicleAvailableForDirectStart && !vehicleReleasedToThisDriver) {
+    if (vehicle.status === "garagem") {
+      return { success: false, message: "Veiculo na garagem precisa ser liberado pelo lider antes de iniciar operacao." };
+    }
+
+    if (vehicle.status === "liberado" && !vehicleReleasedToThisDriver) {
+      return { success: false, message: "Veiculo liberado para outro motorista." };
+    }
+
+    if (!vehicleAvailableForStreetHandoff && !vehicleReleasedToThisDriver) {
       return { success: false, message: "Veiculo indisponivel para iniciar rota." };
     }
 
@@ -273,6 +345,15 @@ class MobileAPIService {
       releasedFromStatus: null,
       updatedAt: serverTimestamp(),
     });
+
+    if (vehicleDevice?.status === "active") {
+      batch.set(doc(db, "vehicleDevices", vehicleDevice.deviceId), {
+        lastSeenAt: serverTimestamp(),
+        lastLocation: location || null,
+        lastLocationError: locationError || null,
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
+    }
 
     if (driver.firestoreId) {
       batch.update(doc(db, "drivers", driver.firestoreId), {
@@ -317,7 +398,7 @@ class MobileAPIService {
 
     return {
       success: true,
-      message: "Saida registrada com sucesso",
+      message: "Operacao iniciada com sucesso",
       data: {
         routeId: routeRef.id,
         tripId: tripRef.id,
@@ -329,6 +410,7 @@ class MobileAPIService {
   }
 
   async registrarRetorno(vehicleNumber: string, driverNumber: string, problems: ProblemReport[], eventLocation?: LocationFields, endKm?: number, returnedToGarage = true): Promise<APIResponse> {
+    const vehicleDevice = await this.getCurrentVehicleDevice();
     const vehicle = await this.getVehicleByNumber(vehicleNumber);
     const driver = await getDriverByRegistration(driverNumber, MOBILE_COMPANY_ID);
 
@@ -338,6 +420,10 @@ class MobileAPIService {
 
     if (!driver) {
       return { success: false, message: "Motorista nao encontrado" };
+    }
+
+    if (vehicleDevice?.status === "active" && vehicleDevice.vehicleId !== vehicle.legacyId) {
+      return { success: false, message: `Este dispositivo esta vinculado ao veiculo ${vehicleDevice.vehicleLabel || vehicleDevice.vehicleId}.` };
     }
 
     const now = new Date().toISOString();
@@ -409,6 +495,15 @@ class MobileAPIService {
       updatedAt: serverTimestamp(),
     });
 
+    if (vehicleDevice?.status === "active") {
+      batch.set(doc(db, "vehicleDevices", vehicleDevice.deviceId), {
+        lastSeenAt: serverTimestamp(),
+        lastLocation: location || null,
+        lastLocationError: locationError || null,
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
+    }
+
     if (driver.firestoreId) {
       batch.update(doc(db, "drivers", driver.firestoreId), {
         status: DRIVER_STATUSES.ACTIVE,
@@ -438,10 +533,11 @@ class MobileAPIService {
     });
 
     await batch.commit();
-    return { success: true, message: "Retorno registrado com sucesso" };
+    return { success: true, message: "Operacao encerrada com sucesso" };
   }
 
   async reportarProblema(problem: Omit<ProblemReport, "id" | "reportedAt"> & Partial<LocationFields>): Promise<APIResponse> {
+    const vehicleDevice = await this.getCurrentVehicleDevice();
     const vehicle = await this.getVehicleByNumber(problem.vehicleNumber);
     const driver = await getDriverByRegistration(problem.driverNumber, MOBILE_COMPANY_ID);
 
@@ -451,6 +547,10 @@ class MobileAPIService {
 
     if (!driver) {
       return { success: false, message: "Motorista nao encontrado" };
+    }
+
+    if (vehicleDevice?.status === "active" && vehicleDevice.vehicleId !== vehicle.legacyId) {
+      return { success: false, message: `Este dispositivo esta vinculado ao veiculo ${vehicleDevice.vehicleLabel || vehicleDevice.vehicleId}.` };
     }
 
     const now = new Date().toISOString();
@@ -486,9 +586,17 @@ class MobileAPIService {
       createdAt: now,
       updatedAt: serverTimestamp(),
     });
+    if (vehicleDevice?.status === "active") {
+      batch.set(doc(db, "vehicleDevices", vehicleDevice.deviceId), {
+        lastSeenAt: serverTimestamp(),
+        lastLocation: location || null,
+        lastLocationError: locationError || null,
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
+    }
     await batch.commit();
 
-    return { success: true, message: "Problema reportado com sucesso" };
+    return { success: true, message: "Relatorio registrado com sucesso" };
   }
 
   async getHistorico(numeroRegistro: string): Promise<APIResponse<TripHistory[]>> {

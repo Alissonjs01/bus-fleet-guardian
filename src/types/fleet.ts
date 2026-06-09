@@ -124,6 +124,23 @@ export interface Route {
   createdAt: string;
 }
 
+export interface VehicleDevice {
+  id: string;
+  deviceId: string;
+  deviceName?: string;
+  vehicleId: number;
+  vehicleLabel: string;
+  companyId: string;
+  status: 'active' | 'inactive' | 'blocked';
+  createdAt: string;
+  updatedAt?: string;
+  lastSeenAt?: string;
+  userAgent?: string;
+  deviceInfo?: string;
+  lastLocation?: GeoPointSnapshot | null;
+  lastLocationError?: GeoPointFailure | null;
+}
+
 export interface FleetData {
   vehicles: Vehicle[];
   drivers: Driver[];
@@ -131,6 +148,7 @@ export interface FleetData {
   revisions: Revision[];
   trips: Trip[];
   routes: Route[];
+  vehicleDevices: VehicleDevice[];
 }
 
 export interface DashboardStats {

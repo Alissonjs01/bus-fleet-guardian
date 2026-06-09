@@ -484,6 +484,8 @@ export const DriverManagement = () => {
                     normalizeRegistration(vehicle.releasedToDriverNumber || "") === normalizeRegistration(driver.numeroRegistro)
                   )
                 );
+                const activeRoute = data.routes.find((route) => route.driverId === driver.id && route.status === "active");
+                const activeRouteVehicle = activeRoute ? data.vehicles.find((vehicle) => vehicle.id === activeRoute.vehicleId) : undefined;
 
                 return (
                   <div key={driver.firestoreId || driver.id} className="flex items-center justify-between rounded-lg border p-4">
@@ -507,6 +509,11 @@ export const DriverManagement = () => {
                           {releasedVehicle && (
                             <Badge className="bg-info text-info-foreground text-xs">
                               Veiculo {releasedVehicle.numeroRegistro} liberado
+                            </Badge>
+                          )}
+                          {activeRouteVehicle && (
+                            <Badge className="bg-success text-success-foreground text-xs">
+                              Veiculo {activeRouteVehicle.numeroRegistro} em rota
                             </Badge>
                           )}
                           {activeProblems > 0 && (

@@ -21,11 +21,11 @@ import type { Driver, Problem, Vehicle } from "@/types/fleet";
 
 function statusLabel(status: Vehicle["status"]) {
   switch (status) {
-    case "garagem": return "Disponivel";
-    case "fora_garagem": return "Fora da garagem";
+    case "garagem": return "Garagem";
+    case "fora_garagem": return "Disponivel na Rua";
     case "liberado": return "Liberado";
-    case "operacao": return "Em rota";
-    case "manutencao": return "Em manutencao";
+    case "operacao": return "Em Rota";
+    case "manutencao": return "Manutencao";
     case "pane_em_rota": return "Pane em rota";
     case "aguardando_auxilio": return "Aguardando auxilio";
   }
@@ -166,7 +166,7 @@ export function GarageOperations() {
   const statCards = [
     { label: "Disponiveis", value: grouped.disponiveis.length, icon: Car },
     { label: "Liberados", value: grouped.liberado.length, icon: KeyRound },
-    { label: "Em rota", value: grouped.rota.length, icon: Route },
+    { label: "Em Rota", value: grouped.rota.length, icon: Route },
     { label: "Manutencao", value: grouped.manutencao.length, icon: Wrench },
   ];
 
@@ -198,7 +198,7 @@ export function GarageOperations() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><KeyRound className="h-5 w-5" /> Liberar chave</CardTitle>
-            <CardDescription>Veiculos na garagem ou em troca na rua podem ser reservados para um motorista.</CardDescription>
+            <CardDescription>Veiculos em garagem ou disponiveis na rua podem ser reservados para um motorista.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             {grouped.disponiveis.map((vehicle) => (

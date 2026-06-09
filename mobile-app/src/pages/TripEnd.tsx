@@ -22,7 +22,7 @@ interface TripEndProps {
 export const TripEnd = ({ onTripEnded, onReportProblem, onBack }: TripEndProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [endKm, setEndKm] = useState('');
-  const [returnedToGarage, setReturnedToGarage] = useState<'sim' | 'nao'>('sim');
+  const [operationCloseMode, setOperationCloseMode] = useState<'render' | 'rua'>('render');
   const [error, setError] = useState('');
   const [locationWarning, setLocationWarning] = useState('');
   
@@ -65,7 +65,7 @@ export const TripEnd = ({ onTripEnded, onReportProblem, onBack }: TripEndProps) 
           locationError: locationResult.error,
         },
         parsedEndKm,
-        returnedToGarage === 'sim',
+        operationCloseMode === 'render',
       );
       
       if (response.success) {
@@ -90,7 +90,7 @@ export const TripEnd = ({ onTripEnded, onReportProblem, onBack }: TripEndProps) 
           driverNumber: driver.numeroRegistro,
           problems: pendingProblems,
           endKm: parsedEndKm,
-          returnedToGarage: returnedToGarage === 'sim',
+          returnedToGarage: operationCloseMode === 'render',
           location: locationResult.location,
           locationError: locationResult.error,
         },
@@ -124,7 +124,7 @@ export const TripEnd = ({ onTripEnded, onReportProblem, onBack }: TripEndProps) 
 
   return (
     <MobileLayout 
-      title="Finalizar Viagem" 
+      title="Encerrar Operacao" 
       showBackButton 
       onBack={onBack}
     >
@@ -134,7 +134,7 @@ export const TripEnd = ({ onTripEnded, onReportProblem, onBack }: TripEndProps) 
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <CheckCircle className="h-5 w-5 text-success" />
-              Resumo da Viagem
+              Resumo da Operacao
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -191,38 +191,38 @@ export const TripEnd = ({ onTripEnded, onReportProblem, onBack }: TripEndProps) 
 
         <Card>
           <CardHeader>
-            <CardTitle>Retorno do veiculo</CardTitle>
+            <CardTitle>Encerrar operacao</CardTitle>
             <CardDescription>
-              Informe se o veiculo voltou fisicamente para a garagem
+              Voce ira render o veiculo ou manter a operacao disponivel na rua?
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-2">
               <Button
                 type="button"
-                variant={returnedToGarage === 'sim' ? 'default' : 'outline'}
+                variant={operationCloseMode === 'render' ? 'default' : 'outline'}
                 className="h-auto flex-col gap-2 py-4"
-                onClick={() => setReturnedToGarage('sim')}
+                onClick={() => setOperationCloseMode('render')}
                 disabled={isLoading}
               >
                 <Home className="h-5 w-5" />
-                <span>Sim</span>
+                <span>Render Veiculo</span>
               </Button>
               <Button
                 type="button"
-                variant={returnedToGarage === 'nao' ? 'default' : 'outline'}
+                variant={operationCloseMode === 'rua' ? 'default' : 'outline'}
                 className="h-auto flex-col gap-2 py-4"
-                onClick={() => setReturnedToGarage('nao')}
+                onClick={() => setOperationCloseMode('rua')}
                 disabled={isLoading}
               >
                 <MapPin className="h-5 w-5" />
-                <span>Nao</span>
+                <span>Manter na Rua</span>
               </Button>
             </div>
             <p className="mt-3 text-sm text-muted-foreground">
-              {returnedToGarage === 'sim'
-                ? 'O veiculo ficara como Na Garagem.'
-                : 'O veiculo ficara fora da garagem, mas livre para nova liberacao operacional.'}
+              {operationCloseMode === 'render'
+                ? 'Finaliza a operacao, remove o vinculo atual e retorna o veiculo para Garagem.'
+                : 'Finaliza a operacao, remove o vinculo atual e deixa o veiculo Disponivel na Rua para nova assuncao.'}
             </p>
           </CardContent>
         </Card>
@@ -233,7 +233,7 @@ export const TripEnd = ({ onTripEnded, onReportProblem, onBack }: TripEndProps) 
             <div className="flex items-center justify-between">
               <CardTitle className="flex items-center gap-2">
                 <AlertTriangle className="h-5 w-5 text-warning" />
-                Problemas Reportados
+                Relatorios da Operacao
               </CardTitle>
               <Button
                 variant="outline"
@@ -247,8 +247,8 @@ export const TripEnd = ({ onTripEnded, onReportProblem, onBack }: TripEndProps) 
             </div>
             <CardDescription>
               {pendingProblems.length === 0 
-                ? 'Nenhum problema reportado nesta viagem'
-                : `${pendingProblems.length} problema(s) reportado(s)`
+                ? 'Nenhum relatorio registrado nesta operacao'
+                : `${pendingProblems.length} relatorio(s) registrado(s)`
               }
             </CardDescription>
           </CardHeader>
@@ -312,7 +312,7 @@ export const TripEnd = ({ onTripEnded, onReportProblem, onBack }: TripEndProps) 
             ) : (
               <>
                 <CheckCircle className="mr-2 h-4 w-4" />
-                Finalizar Viagem
+                Encerrar Operacao
               </>
             )}
           </Button>
@@ -332,7 +332,7 @@ export const TripEnd = ({ onTripEnded, onReportProblem, onBack }: TripEndProps) 
           <CardContent className="pt-4">
             <div className="text-xs text-muted-foreground space-y-1">
               <p>• Os dados serão sincronizados automaticamente</p>
-              <p>• Problemas críticos são priorizados no sistema</p>
+              <p>• Relatorios criticos sao priorizados no sistema</p>
               <p>• O histórico ficará disponível no painel</p>
             </div>
           </CardContent>
