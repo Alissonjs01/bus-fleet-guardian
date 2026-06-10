@@ -223,4 +223,74 @@ All colors MUST be HSL.
   :root[data-mobile-theme="light"] .mobile-premium-card {
     box-shadow: 0 18px 45px hsl(214 28% 56% / 0.14);
   }
+
+  .maintenance-screen {
+    position: relative;
+    background:
+      radial-gradient(circle at 18% 18%, hsl(var(--primary) / 0.18), transparent 28rem),
+      radial-gradient(circle at 82% 78%, hsl(var(--info) / 0.14), transparent 26rem),
+      linear-gradient(135deg, hsl(222 48% 5%), hsl(220 28% 8%) 48%, hsl(222 44% 5%));
+  }
+
+  .maintenance-grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(hsl(var(--primary) / 0.08) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--primary) / 0.08) 1px, transparent 1px);
+    background-size: 44px 44px;
+    mask-image: radial-gradient(circle at center, black, transparent 74%);
+    animation: maintenance-grid-drift 14s linear infinite;
+  }
+
+  .maintenance-scan {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, transparent, hsl(var(--primary) / 0.12), transparent);
+    transform: translateY(-100%);
+    animation: maintenance-scan 4.8s ease-in-out infinite;
+  }
+
+  .maintenance-card {
+    box-shadow: 0 18px 55px hsl(220 45% 2% / 0.22);
+    animation: maintenance-card-rise 620ms ease both;
+  }
+}
+
+@keyframes maintenance-grid-drift {
+  from {
+    background-position: 0 0;
+  }
+
+  to {
+    background-position: 44px 44px;
+  }
+}
+
+@keyframes maintenance-scan {
+  0%, 28% {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+
+  42%, 70% {
+    opacity: 1;
+  }
+
+  100% {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+}
+
+@keyframes maintenance-card-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
