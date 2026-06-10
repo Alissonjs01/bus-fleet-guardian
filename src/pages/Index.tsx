@@ -9,25 +9,13 @@ import { Reports } from "@/components/reports/Reports";
 import { Backup } from "@/components/backup/Backup";
 import { GarageOperations } from "@/components/garage/GarageOperations";
 import { VehicleDevices } from "@/components/devices/VehicleDevices";
-import { useFleetData } from "@/hooks/useFleetData";
+import { ManagerExpress } from "@/components/manager/ManagerExpress";
 import { useAuth } from "@/contexts/AuthContext";
 
 const Index = () => {
   const { user } = useAuth();
   const [activeView, setActiveView] = useState(() => user?.role === "lider_garagem" ? "garage" : "dashboard");
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
-  const { data } = useFleetData();
-  const dataVersion = [
-    data.vehicles.length,
-    data.drivers.length,
-    data.problems.length,
-    data.revisions.length,
-    data.trips.length,
-    data.routes.length,
-    data.vehicleDevices.length,
-    data.vehicles.map((vehicle) => `${vehicle.id}:${vehicle.status}`).join("|"),
-    data.drivers.map((driver) => `${driver.id}:${driver.status}`).join("|"),
-  ].join("-");
 
   const canAccessView = (view: string) => {
     if (!user) return false;
@@ -45,6 +33,8 @@ const Index = () => {
     switch (activeView) {
       case "dashboard":
         return <Dashboard />;
+      case "manager-express":
+        return <ManagerExpress />;
       case "garage":
         return <GarageOperations />;
       case "vehicle-devices":
@@ -75,9 +65,7 @@ const Index = () => {
         onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
       />
       <div className="flex-1 overflow-y-auto p-6">
-        <div key={`${activeView}-${dataVersion}`}>
-          {renderContent()}
-        </div>
+        {renderContent()}
       </div>
     </div>
   );

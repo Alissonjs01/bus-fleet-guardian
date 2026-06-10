@@ -25,6 +25,14 @@ import { normalizeRegistration } from "@/utils/localStorage";
 
 type FleetCollectionName = "vehicles" | "drivers" | "issues" | "maintenance" | "trips" | "routes" | "vehicleDevices";
 
+export interface FleetExpressData {
+  vehicles: Vehicle[];
+  drivers: Driver[];
+  problems: Problem[];
+  routes: Route[];
+  vehicleDevices: VehicleDevice[];
+}
+
 const COLLECTIONS: Record<keyof FleetData, FleetCollectionName> = {
   vehicles: "vehicles",
   drivers: "drivers",
@@ -393,6 +401,88 @@ export function subscribeFleetData(
       (error) => onError(new Error(`Listener ${COLLECTIONS[key]}: ${error.message}`)),
     );
   });
+
+  return () => subscriptions.forEach((unsubscribe) => unsubscribe());
+}
+
+export function subscribeFleetExpressData(
+  companyId: string,
+  callback: (data: FleetExpressData, pendingWrites: boolean) => void,
+  onError: (error: Error) => void,
+) {
+  const data: FleetExpressData = {
+    vehicles: [],
+    drivers: [],
+    problems: [],
+    routes: [],
+    vehicleDevices: [],
+  };
+  const pending: Record<keyof FleetExpressData, boolean> = {
+    vehicles: false,
+    drivers: false,
+    problems: false,
+    routes: false,
+    vehicleDevices: false,
+  };
+
+  const emit = () => {
+    callback({ ...data }, Object.values(pending).some(Boolean));
+  };
+
+  const subscriptions = [
+    onSnapshot(
+      query(collection(db, "vehicles"), where("companyId", "==", companyId)),
+      { includeMetadataChanges: true },
+      (snapshot) => {
+        pending.vehicles = snapshot.metadata.hasPendingWrites;
+        data.vehicles = snapshot.docs.map((item) => normalizeVehicle(item.id, item.data()));
+        emit();
+      },
+      (error) => onError(new Error(`Express vehicles: ${error.message}`)),
+    ),
+    onSnapshot(
+      query(collection(db, "drivers"), where("companyId", "==", companyId), where("status", "==", "active")),
+      { includeMetadataChanges: true },
+      (snapshot) => {
+        pending.drivers = snapshot.metadata.hasPendingWrites;
+        data.drivers = snapshot.docs.map((item) => normalizeDriver(item.id, item.data()));
+        emit();
+      },
+      (error) => onError(new Error(`Express drivers: ${error.message}`)),
+    ),
+    onSnapshot(
+      query(collection(db, "issues"), where("companyId", "==", companyId), where("status", "in", ["aberta", "em_andamento"])),
+      { includeMetadataChanges: true },
+      (snapshot) => {
+        pending.problems = snapshot.metadata.hasPendingWrites;
+        data.problems = snapshot.docs
+          .map((item) => normalizeProblem(item.id, item.data()))
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        emit();
+      },
+      (error) => onError(new Error(`Express issues: ${error.message}`)),
+    ),
+    onSnapshot(
+      query(collection(db, "routes"), where("companyId", "==", companyId), where("status", "==", "active")),
+      { includeMetadataChanges: true },
+      (snapshot) => {
+        pending.routes = snapshot.metadata.hasPendingWrites;
+        data.routes = snapshot.docs.map((item) => normalizeRoute(item.id, item.data()));
+        emit();
+      },
+      (error) => onError(new Error(`Express routes: ${error.message}`)),
+    ),
+    onSnapshot(
+      query(collection(db, "vehicleDevices"), where("companyId", "==", companyId), where("status", "==", "active")),
+      { includeMetadataChanges: true },
+      (snapshot) => {
+        pending.vehicleDevices = snapshot.metadata.hasPendingWrites;
+        data.vehicleDevices = snapshot.docs.map((item) => normalizeVehicleDevice(item.id, item.data()));
+        emit();
+      },
+      (error) => onError(new Error(`Express vehicleDevices: ${error.message}`)),
+    ),
+  ];
 
   return () => subscriptions.forEach((unsubscribe) => unsubscribe());
 }

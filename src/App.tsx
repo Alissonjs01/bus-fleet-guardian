@@ -7,6 +7,7 @@ import Index from "./pages/Index";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 import Activation from "./pages/Activation";
+import MobileEntry from "./pages/MobileEntry";
 import AdminDashboard from "./admin/pages/AdminDashboard";
 import LicenseList from "./admin/pages/LicenseList";
 import ActivityLogs from "./admin/pages/ActivityLogs";
@@ -20,6 +21,7 @@ import { ManagerRoute } from "@/components/auth/ManagerRoute";
 import { MobileRoute } from "@/components/auth/MobileRoute";
 import { MobileApp } from "../mobile-app/src/MobileApp";
 import { resetLegacySessionsOnce } from "@/utils/sessionReset";
+import { ManagerExpress } from "@/components/manager/ManagerExpress";
 
 resetLegacySessionsOnce();
 
@@ -36,6 +38,7 @@ const App = () => (
             <Route path="/login" element={<Login />} />
             <Route path="/activation" element={<Activation />} />
             <Route path="/" element={<DeviceRedirect />} />
+            <Route path="/mobile-entry" element={<MobileEntry />} />
 
             <Route
               path="/admin"
@@ -94,6 +97,18 @@ const App = () => (
                 <AuthGuard>
                   <ManagerRoute>
                     <Index />
+                  </ManagerRoute>
+                </AuthGuard>
+              }
+            />
+            <Route
+              path="/gestor-express"
+              element={
+                <AuthGuard>
+                  <ManagerRoute>
+                    <div className="min-h-screen bg-background p-4">
+                      <ManagerExpress />
+                    </div>
                   </ManagerRoute>
                 </AuthGuard>
               }

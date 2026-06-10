@@ -7,6 +7,7 @@ import {
   AlertTriangle,
   FileText,
   HardDrive,
+  Gauge,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -27,6 +28,7 @@ interface SidebarProps {
 
 const menuItems = [
   { id: 'dashboard', label: 'Painel', icon: LayoutDashboard },
+  { id: 'manager-express', label: 'Gestor Express', icon: Gauge },
   { id: 'garage', label: 'Garagem', icon: Warehouse },
   { id: 'vehicle-devices', label: 'Dispositivos', icon: Smartphone },
   { id: 'vehicles', label: 'Veículos', icon: Car },

@@ -10,7 +10,7 @@ export function DeviceRedirect() {
 
   useEffect(() => {
     if (isMobileDevice()) {
-      navigate("/mobile", { replace: true });
+      navigate("/mobile-entry", { replace: true });
       return;
     }
 

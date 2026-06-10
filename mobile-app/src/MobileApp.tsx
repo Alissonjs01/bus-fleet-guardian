@@ -6,7 +6,6 @@ import { TripStart } from "./pages/TripStart";
 import { TripEnd } from "./pages/TripEnd";
 import { ProblemReport } from "./pages/ProblemReport";
 import { History } from "./pages/History";
-import { useFleetData } from "@/hooks/useFleetData";
 import { MobileLayout } from "./components/MobileLayout";
 import { mobileAPI } from "./services/api";
 import { clearMobileTheme, useMobileTheme } from "./utils/theme";
@@ -20,8 +19,6 @@ export const MobileApp = () => {
   const [currentView, setCurrentView] = useState<MobileView>(() =>
     mobileStorage.isLoggedIn() ? "dashboard" : "login",
   );
-
-  useFleetData("demo-company");
 
   useEffect(() => clearMobileTheme, []);
 

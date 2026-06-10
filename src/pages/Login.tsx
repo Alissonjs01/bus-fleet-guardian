@@ -31,7 +31,7 @@ const Login = () => {
     }
 
     if (isMobileDevice()) {
-      navigate("/mobile", { replace: true });
+      navigate("/gestor-express", { replace: true });
       return;
     }
 
